@@ -122,7 +122,9 @@ class PowerFlowCard extends HTMLElement {
   _getState(entity) {
     if (!entity || !this._hass) return null;
     const s = this._hass.states[entity];
-    return s ? (parseFloat(s.state) || 0) : null;
+    if (!s || s.state === 'unavailable' || s.state === 'unknown') return null;
+    const v = parseFloat(s.state);
+    return isNaN(v) ? null : v;
   }
 
   _fmtW(v) {
@@ -272,7 +274,6 @@ class PowerFlowCard extends HTMLElement {
     this._buildFlows();
     this._buildNodes();
     this._updateData();
-    this._startAnimation();
   }
 
   // ─── Definieer flows (verbindingen) ───────────────────────────────────────
@@ -415,14 +416,15 @@ class PowerFlowCard extends HTMLElement {
   _startAnimation() {
     if (this._animating) return;
     this._animating = true;
+    this._tick = 0;
     this._animLoop();
   }
 
   _animLoop() {
     if (!this._dotsG) { this._animating = false; return; }
 
-    // Nieuwe stippen toevoegen
-    if (this._tick % 15 === 0) {
+    // Nieuwe stippen toevoegen elke 20 frames per actieve flow
+    if (this._tick % 20 === 0 && this._D) {
       this._flows.filter(f => f.active()).forEach(fl => {
         const nFrom = this._nodes[fl.from];
         const nTo   = this._nodes[fl.to];
@@ -430,11 +432,12 @@ class PowerFlowCard extends HTMLElement {
         const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
         dot.setAttribute('r', '5');
         dot.setAttribute('fill', fl.col);
+        dot.setAttribute('opacity', '0.9');
         this._dotsG.appendChild(dot);
         this._particles.push({
           fl, dot,
-          t:    Math.random() * 0.25,
-          spd:  0.006 + Math.random() * 0.004,
+          t:    Math.random() * 0.15,
+          spd:  0.007 + Math.random() * 0.005,
           nFrom, nTo,
         });
       });
@@ -461,24 +464,26 @@ class PowerFlowCard extends HTMLElement {
     this._tick++;
     this._animFrame = requestAnimationFrame(() => this._animLoop());
   }
+
+  // ─── Data bijwerken ───────────────────────────────────────────────────────
   _updateData() {
-    if (!this._hass) return;
+    if (!this._hass || !this._nodeValEls) return;
     const cfg = this._config;
-    const prev = this._D || {};
 
     this._D = {
-      solar: Math.round(this._getState(cfg.solar_entity) || 0),
-      grid:  Math.round(this._getState(cfg.grid_entity)  || 0),
-      bat:   Math.round(this._getState(cfg.battery_entity) || 0),
-      home:  Math.round(this._getState(cfg.home_entity)  || 0),
-      soc:   Math.round(this._getState(cfg.battery_soc_entity) || 0),
+      solar: Math.round(this._getState(cfg.solar_entity) ?? 0),
+      grid:  Math.round(this._getState(cfg.grid_entity)  ?? 0),
+      bat:   Math.round(this._getState(cfg.battery_entity) ?? 0),
+      home:  Math.round(this._getState(cfg.home_entity)  ?? 0),
+      soc:   Math.round(this._getState(cfg.battery_soc_entity) ?? 0),
     };
 
     cfg.entities.forEach((e, i) => {
-      this._D[`extra_${i}`] = Math.round(this._getState(e.entity) || 0);
+      this._D[`extra_${i}`] = Math.round(this._getState(e.entity) ?? 0);
     });
 
     this._updateSVG();
+    if (!this._animating) this._startAnimation();
   }
 
   // ─── SVG labels en lijnen bijwerken ──────────────────────────────────────
