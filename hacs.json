@@ -1,0 +1,7 @@
+{
+  "name": "Power Flow Card Simple",
+  "description": "A simple animated power flow card for Home Assistant showing energy flows between solar, grid, battery and home consumption.",
+  "content_in_root": true,
+  "render_readme": true,
+  "filename": "power-flow-card-simple.js"
+}
