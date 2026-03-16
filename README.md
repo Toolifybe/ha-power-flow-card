@@ -1,10 +1,10 @@
-# Power Flow Card Simple v1.0.0
-
+# Power Flow Card
 A lightweight, animated power flow card for Home Assistant. No dependencies, no build step — just one JS file.
 
 Visualises energy flows between solar panels, grid, battery and home consumption with animated dots on the flow lines.
 
-![preview](preview.png)
+[![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
+![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
 
 ## Installation
 

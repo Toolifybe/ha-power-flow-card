@@ -1,11 +1,11 @@
 {
+  "domain": "power-flow-card-simple",
   "name": "Power Flow Card Simple",
-  "description": "...",
-  "render_readme": true,
-  "domains": ["power_flow_card_simple"],
+  "version": "1.0.1",
   "documentation": "https://github.com/Toolifybe/power-flow-card-simple",
   "issue_tracker": "https://github.com/Toolifybe/power-flow-card-simple/issues",
-  "homeassistant": "2023.1.0",
-  "filename": "power-flow-card-simple.js",
-  "content_in_root": false
+  "dependencies": [],
+  "codeowners": ["@Toolifybe"],
+  "requirements": [],
+  "iot_class": "local_push"
 }
