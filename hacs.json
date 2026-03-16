@@ -1,11 +1,10 @@
 {
   "name": "Power Flow Card",
-  "description": "...",
+  "description": "Animated power flow card for Home Assistant with support for solar, grid, battery and individual consumers.",
   "render_readme": true,
-  "domains": ["power_flow_card"],
   "documentation": "https://github.com/Toolifybe/ha-power-flow-card",
   "issue_tracker": "https://github.com/Toolifybe/ha-power-flow-card/issues",
   "homeassistant": "2023.1.0",
   "filename": "power-flow-card.js",
-  "content_in_root": false
+  "content_in_root": true
 }
