@@ -89,6 +89,7 @@ class PowerFlowCard extends HTMLElement {
       home_entity:        config.home_entity        || null,
       title:              config.title              || null,
       grid_inverted:      config.grid_inverted      !== undefined ? config.grid_inverted : true,
+      battery_inverted:   config.battery_inverted   !== undefined ? config.battery_inverted : true,
       entities: Array.isArray(config.entities)
         ? config.entities.map((e, i) => ({
             entity: e.entity,
@@ -179,14 +180,17 @@ class PowerFlowCard extends HTMLElement {
 
     // grid_inverted: true  = negatief is afname, positief is injectie (standaard bij veel meters)
     //               false = positief is afname, negatief is injectie
+    // grid_inverted:    true = negatief afname, positief injectie
+    // battery_inverted: true = positief ontladen, negatief laden (Marstek conventie)
     const gi = cfg.grid_inverted;
+    const bi = cfg.battery_inverted;
     if (N.solar && N.home)  f('solar','home', c.solar,   () => (D().solar||0) > 0);
-    if (N.solar && N.bat)   f('solar','bat',  c.solar,   () => (D().solar||0) > 0 && (gi ? (D().bat||0) > 0 : (D().bat||0) < 0));
+    if (N.solar && N.bat)   f('solar','bat',  c.solar,   () => (D().solar||0) > 0 && (bi ? (D().bat||0) < 0 : (D().bat||0) > 0));
     if (N.solar && N.grid)  f('solar','grid', c.solar,   () => (D().solar||0) > 0 && (gi ? (D().grid||0) > 0 : (D().grid||0) < 0));
     if (N.grid  && N.home)  f('grid', 'home', c.grid,    () => gi ? (D().grid||0) < 0 : (D().grid||0) > 0);
     if (N.home  && N.grid)  f('home', 'grid', c.grid,    () => (gi ? (D().grid||0) > 0 : (D().grid||0) < 0) && (D().solar||0) <= 0);
-    if (N.bat   && N.home)  f('bat',  'home', c.battery, () => gi ? (D().bat||0)  < 0 : (D().bat||0)  > 0);
-    if (N.home  && N.bat)   f('home', 'bat',  '#f97316', () => (gi ? (D().bat||0) > 0 : (D().bat||0) < 0) && (D().solar||0) <= 0);
+    if (N.bat   && N.home)  f('bat',  'home', c.battery, () => bi ? (D().bat||0) > 0 : (D().bat||0) < 0);
+    if (N.home  && N.bat)   f('home', 'bat',  '#f97316', () => (bi ? (D().bat||0) < 0 : (D().bat||0) > 0) && (D().solar||0) <= 0);
     extras.forEach((_, i) => f('home', `ex${i}`, extras[i].color, () => (D()[`ex${i}`]||0) > 0));
 
     // ── DOM ──
@@ -413,10 +417,21 @@ class PowerFlowCard extends HTMLElement {
   }
 
   // ── Animatie loop ──────────────────────────────────────────────────────────
+  _nodeRadius(key) {
+    return key === 'home' ? 36 : 28;
+  }
+
   _animate() {
     if (this._raf) cancelAnimationFrame(this._raf);
 
+    // Hervat animatie als tab terug zichtbaar wordt
+    this._visHandler = () => { if (!document.hidden && !this._raf) { this._tick = 0; this._animate(); } };
+    document.removeEventListener('visibilitychange', this._visHandler);
+    document.addEventListener('visibilitychange', this._visHandler);
+
     const loop = () => {
+      if (document.hidden) { this._raf = null; return; }
+
       // Spawn elke 20 frames een nieuwe stip per actieve flow
       if (this._tick % 20 === 0) {
         this._flows.forEach(fl => {
@@ -425,9 +440,9 @@ class PowerFlowCard extends HTMLElement {
           const b = this._nodes[fl.to];
           if (!a || !b) return;
 
-          // Bereken startpunt op de rand van de broncirkel
-          const Ra = fl.from === 'home' ? 36 : 28;
-          const Rb = fl.to   === 'home' ? 36 : 28;
+          // Start en stop op de cirkelrand
+          const Ra = this._nodeRadius(fl.from);
+          const Rb = this._nodeRadius(fl.to);
           const dx = b.x - a.x, dy = b.y - a.y;
           const dist = Math.sqrt(dx*dx + dy*dy) || 1;
           const ax = a.x + dx / dist * Ra;
@@ -472,6 +487,7 @@ class PowerFlowCard extends HTMLElement {
 
   disconnectedCallback() {
     if (this._raf) { cancelAnimationFrame(this._raf); this._raf = null; }
+    if (this._visHandler) document.removeEventListener('visibilitychange', this._visHandler);
   }
 
   getCardSize() { return 5; }
