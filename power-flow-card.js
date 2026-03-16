@@ -232,31 +232,19 @@ class PowerFlowCard extends HTMLElement {
           display: block;
           overflow: visible;
         }
-        .node-circle {
-          fill: transparent;
-          stroke-width: 2.5;
-          transition: stroke-opacity 0.3s;
-        }
-        .node-bg {
-          opacity: 0.12;
-        }
-        .node-icon-path {
-          /* colored via fill attr */
-        }
         .node-label {
-          font-size: 10px;
-          font-weight: 500;
+          font-size: 11px;
+          font-weight: 600;
           text-anchor: middle;
-          fill: var(--secondary-text-color, #aaa);
+          fill: var(--primary-text-color, #212121);
         }
         .node-value {
           font-size: 13px;
           font-weight: 700;
           text-anchor: middle;
-          fill: var(--primary-text-color, #fff);
         }
         .grid-sub {
-          font-size: 9px;
+          font-size: 10px;
           font-weight: 500;
           text-anchor: middle;
         }
@@ -265,38 +253,24 @@ class PowerFlowCard extends HTMLElement {
           stroke-width: 2;
           stroke-linecap: round;
         }
-        .flow-dot {
-          /* drawn on canvas overlay */
-        }
-        .dot-canvas {
-          position: absolute;
-          top: 0; left: 0;
-          width: 100%;
-          height: 100%;
-          pointer-events: none;
-          border-radius: 16px;
-        }
       </style>
       <div class="card">
         ${cfg.title ? `<div class="card-title">${cfg.title}</div>` : ''}
-        <div style="position:relative;">
-          <svg class="flow-svg" id="flow-svg" viewBox="0 0 ${W} ${H}">
-            <g id="lines-layer"></g>
-            <g id="nodes-layer"></g>
-          </svg>
-          <canvas class="dot-canvas" id="dot-canvas"></canvas>
-        </div>
+        <svg class="flow-svg" id="flow-svg" viewBox="0 0 ${W} ${H}">
+          <g id="lines-layer"></g>
+          <g id="dots-layer"></g>
+          <g id="nodes-layer"></g>
+        </svg>
       </div>
     `;
 
     this._svg    = shadow.getElementById('flow-svg');
     this._linesG = shadow.getElementById('lines-layer');
+    this._dotsG  = shadow.getElementById('dots-layer');
     this._nodesG = shadow.getElementById('nodes-layer');
-    this._canvas = shadow.getElementById('dot-canvas');
 
     this._buildFlows();
     this._buildNodes();
-    this._initDotCanvas();
     this._updateData();
     this._startAnimation();
   }
@@ -437,28 +411,56 @@ class PowerFlowCard extends HTMLElement {
     });
   }
 
-  // ─── Canvas voor bewegende stippen ────────────────────────────────────────
-  _initDotCanvas() {
-    const dpr = window.devicePixelRatio || 1;
-    const canvas = this._canvas;
-    // Pas canvas aan bij resize via ResizeObserver
-    const ro = new ResizeObserver(entries => {
-      for (const e of entries) {
-        const { width, height } = e.contentRect;
-        canvas.width  = width  * dpr;
-        canvas.height = height * dpr;
-        this._canvasW = width;
-        this._canvasH = height;
-        this._canvasScale = width / this._W;
-      }
-    });
-    ro.observe(canvas.parentElement);
-    this._canvasScale = 1;
-    this._canvasW = this._W;
-    this._canvasH = this._H;
+  // ─── Animatie (bewegende stippen in SVG) ─────────────────────────────────
+  _startAnimation() {
+    if (this._animating) return;
+    this._animating = true;
+    this._animLoop();
   }
 
-  // ─── Data bijwerken ───────────────────────────────────────────────────────
+  _animLoop() {
+    if (!this._dotsG) { this._animating = false; return; }
+
+    // Nieuwe stippen toevoegen
+    if (this._tick % 15 === 0) {
+      this._flows.filter(f => f.active()).forEach(fl => {
+        const nFrom = this._nodes[fl.from];
+        const nTo   = this._nodes[fl.to];
+        if (!nFrom || !nTo) return;
+        const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        dot.setAttribute('r', '5');
+        dot.setAttribute('fill', fl.col);
+        this._dotsG.appendChild(dot);
+        this._particles.push({
+          fl, dot,
+          t:    Math.random() * 0.25,
+          spd:  0.006 + Math.random() * 0.004,
+          nFrom, nTo,
+        });
+      });
+    }
+
+    // Stippen bewegen en verwijderen
+    for (let i = this._particles.length - 1; i >= 0; i--) {
+      const p = this._particles[i];
+      p.t += p.spd;
+      if (p.t >= 1 || !p.fl.active()) {
+        p.dot.remove();
+        this._particles.splice(i, 1);
+        continue;
+      }
+      const mx = (p.nFrom.x + p.nTo.x) / 2;
+      const my = (p.nFrom.y + p.nTo.y) / 2;
+      const t = p.t;
+      const px = (1-t)*(1-t)*p.nFrom.x + 2*(1-t)*t*mx + t*t*p.nTo.x;
+      const py = (1-t)*(1-t)*p.nFrom.y + 2*(1-t)*t*my + t*t*p.nTo.y;
+      p.dot.setAttribute('cx', px);
+      p.dot.setAttribute('cy', py);
+    }
+
+    this._tick++;
+    this._animFrame = requestAnimationFrame(() => this._animLoop());
+  }
   _updateData() {
     if (!this._hass) return;
     const cfg = this._config;
@@ -526,64 +528,6 @@ class PowerFlowCard extends HTMLElement {
       el.setAttribute('opacity',   on ? '0.7' : '0.2');
       el.setAttribute('stroke-width', on ? '2.5' : '1.5');
     });
-  }
-
-  // ─── Animatie (bewegende stippen op canvas overlay) ──────────────────────
-  _startAnimation() {
-    if (this._animating) return;
-    this._animating = true;
-    this._animLoop();
-  }
-
-  _animLoop() {
-    const canvas = this._canvas;
-    if (!canvas) { this._animating = false; return; }
-    const dpr = window.devicePixelRatio || 1;
-    const ctx = canvas.getContext('2d');
-    const cw = canvas.width, ch = canvas.height;
-    const scale = this._canvasScale || 1;
-
-    ctx.clearRect(0, 0, cw, ch);
-
-    // Nieuwe stippen toevoegen
-    if (this._tick % 15 === 0) {
-      this._flows.filter(f => f.active()).forEach(fl => {
-        const nFrom = this._nodes[fl.from];
-        const nTo   = this._nodes[fl.to];
-        if (!nFrom || !nTo) return;
-        this._particles.push({
-          fl,
-          t:   Math.random() * 0.25,
-          spd: 0.006 + Math.random() * 0.004,
-          nFrom, nTo,
-        });
-      });
-    }
-
-    // Stippen tekenen
-    for (let i = this._particles.length - 1; i >= 0; i--) {
-      const p = this._particles[i];
-      p.t += p.spd;
-      if (p.t >= 1 || !p.fl.active()) {
-        this._particles.splice(i, 1);
-        continue;
-      }
-      const mx = (p.nFrom.x + p.nTo.x) / 2;
-      const my = (p.nFrom.y + p.nTo.y) / 2;
-      const t = p.t;
-      const px = (1-t)*(1-t)*p.nFrom.x + 2*(1-t)*t*mx + t*t*p.nTo.x;
-      const py = (1-t)*(1-t)*p.nFrom.y + 2*(1-t)*t*my + t*t*p.nTo.y;
-
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(px * scale * dpr, py * scale * dpr, 4 * scale * dpr, 0, Math.PI * 2);
-      ctx.fillStyle = p.fl.col;
-      ctx.fill();
-      ctx.restore();
-    }
-
-    this._tick++;
-    this._animFrame = requestAnimationFrame(() => this._animLoop());
   }
 
   disconnectedCallback() {
