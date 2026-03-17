@@ -5,7 +5,7 @@ A lightweight, animated power flow card for Home Assistant. No dependencies, no 
 Visualises energy flows between solar panels, grid, battery and home consumption with animated dots on the flow lines. Individual consumers (PC, TV, ...) can be added via YAML.
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
-![Version](https://img.shields.io/badge/version-2.2.0-blue.svg)
+![Version](https://img.shields.io/badge/version-2.3.0-blue.svg)
 
 ## Layout
 

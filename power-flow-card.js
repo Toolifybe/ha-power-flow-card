@@ -195,12 +195,26 @@ class PowerFlowCard extends HTMLElement {
     const cfg = this._config;
     this.shadowRoot.innerHTML = `<style>
       :host{display:block}
-      .card{background:var(--card-background-color,#fff);border-radius:12px;border:1px solid var(--divider-color,rgba(0,0,0,0.1));padding:12px;font-family:var(--paper-font-body1_-_font-family,sans-serif)}
-      .title{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--secondary-text-color,#888);text-align:center;margin-bottom:4px}
+      .card{
+        background:var(--card-background-color,#fff);
+        border-radius:16px;
+        border:1px solid var(--divider-color,rgba(0,0,0,0.07));
+        padding:16px 12px 20px;
+        font-family:'Helvetica Neue',system-ui,sans-serif;
+      }
+      .title{
+        font-size:10px;
+        font-weight:700;
+        letter-spacing:.12em;
+        text-transform:uppercase;
+        color:var(--secondary-text-color,#999);
+        text-align:center;
+        margin-bottom:8px;
+      }
       svg{width:100%;display:block;overflow:visible}
-      .lbl{font-size:13px;font-weight:600;text-anchor:middle;fill:var(--primary-text-color,#333)}
-      .val{font-size:14px;font-weight:700;text-anchor:middle}
-      .sub{font-size:11px;font-weight:500;text-anchor:middle}
+      .lbl{font-size:12px;font-weight:600;text-anchor:middle;fill:var(--secondary-text-color,#666)}
+      .val{font-size:13px;font-weight:700;text-anchor:middle}
+      .sub{font-size:10px;font-weight:500;text-anchor:middle;fill:var(--secondary-text-color,#888)}
     </style>
     <div class="card">
       ${cfg.title ? `<div class="title">${cfg.title}</div>` : ''}
@@ -231,67 +245,81 @@ class PowerFlowCard extends HTMLElement {
     Object.entries(this._nodes).forEach(([key, n]) => {
       const R = getR(key);
       const isHome = key === 'home';
+      const isBat  = key === 'bat';
       const g = svgEl('g');
 
-      // Achtergrond + rand
+      // Achtergrondcirkel — iets donkerder voor betere leesbaarheid
       const bg = svgEl('circle');
       bg.setAttribute('cx', n.x); bg.setAttribute('cy', n.y); bg.setAttribute('r', R);
-      bg.setAttribute('fill', n.col); bg.setAttribute('opacity', '0.13');
+      bg.setAttribute('fill', n.col); bg.setAttribute('opacity', isHome ? '0.15' : '0.10');
       g.appendChild(bg);
 
+      // Binnenste ring — subtiele extra diepte
+      const inner = svgEl('circle');
+      inner.setAttribute('cx', n.x); inner.setAttribute('cy', n.y); inner.setAttribute('r', R - 4);
+      inner.setAttribute('fill', 'none');
+      inner.setAttribute('stroke', n.col);
+      inner.setAttribute('stroke-width', '0.5');
+      inner.setAttribute('opacity', '0.3');
+      g.appendChild(inner);
+
+      // Buitenste rand
       const border = svgEl('circle');
       border.setAttribute('cx', n.x); border.setAttribute('cy', n.y); border.setAttribute('r', R);
       border.setAttribute('fill', 'none'); border.setAttribute('stroke', n.col);
-      border.setAttribute('stroke-width', isHome ? '3' : '2.5');
+      border.setAttribute('stroke-width', isHome ? '3' : '2');
       g.appendChild(border);
 
-      // Icoon — boven midden van cirkel
-      const sz = isHome ? 26 : (key === 'bat' ? 22 : 20);
+      // Icoon
+      const sz = isHome ? 24 : (isBat ? 20 : 18);
       const ig = svgEl('g');
-      ig.setAttribute('transform', `translate(${n.x - sz/2},${n.y - sz/2 - (isHome ? 10 : key === 'bat' ? 12 : 7)}) scale(${sz/24})`);
+      ig.setAttribute('transform', `translate(${n.x - sz/2},${n.y - sz/2 - (isHome ? 10 : isBat ? 12 : 7)}) scale(${sz/24})`);
       const ip = svgEl('path');
-      ip.setAttribute('d', getMdiPath(n.icon)); ip.setAttribute('fill', n.col);
+      ip.setAttribute('d', getMdiPath(n.icon));
+      ip.setAttribute('fill', n.col);
       ig.appendChild(ip); g.appendChild(ig);
 
-      // Waarde — onder icoon, binnen cirkel
+      // Waarde
       const vt = svgEl('text');
-      vt.setAttribute('x', n.x); vt.setAttribute('y', n.y + (isHome ? 23 : key === 'bat' ? 14 : 19));
+      vt.setAttribute('x', n.x); vt.setAttribute('y', n.y + (isHome ? 22 : isBat ? 14 : 18));
       vt.setAttribute('class', 'val'); vt.setAttribute('fill', n.col);
-      vt.setAttribute('font-size', isHome ? '15' : '13');
+      vt.setAttribute('font-size', isHome ? '14' : '12');
+      vt.setAttribute('font-weight', '700');
       vt.textContent = '—';
       g.appendChild(vt);
       this._valEls[key] = vt;
 
-      // Batterij: aparte SOC regel onder de waarde
-      if (key === 'bat') {
+      // Batterij SOC op tweede regel
+      if (isBat) {
         const socTxt = svgEl('text');
         socTxt.setAttribute('x', n.x);
         socTxt.setAttribute('y', n.y + 30);
         socTxt.setAttribute('class', 'val');
         socTxt.setAttribute('fill', n.col);
-        socTxt.setAttribute('font-size', '13');
+        socTxt.setAttribute('font-size', '12');
+        socTxt.setAttribute('opacity', '0.85');
         socTxt.textContent = '—%';
         g.appendChild(socTxt);
         this._valEls['bat-soc'] = socTxt;
       }
 
-      // Grid sub-labels (buiten cirkel)
+      // Grid sub-labels
       if (key === 'grid') {
         const s1 = svgEl('text');
-        s1.setAttribute('x', n.x); s1.setAttribute('y', n.y + R + 13);
+        s1.setAttribute('x', n.x); s1.setAttribute('y', n.y + R + 14);
         s1.setAttribute('class', 'sub'); s1.setAttribute('fill', n.col);
         g.appendChild(s1); this._subEls.gi = s1;
 
         const s2 = svgEl('text');
-        s2.setAttribute('x', n.x); s2.setAttribute('y', n.y + R + 24);
+        s2.setAttribute('x', n.x); s2.setAttribute('y', n.y + R + 25);
         s2.setAttribute('class', 'sub'); s2.setAttribute('fill', n.col);
         g.appendChild(s2); this._subEls.ge = s2;
       }
 
-      // Naam label — buiten cirkel
+      // Naam label
       const lblY = n.y < 100
-        ? n.y - R - 6
-        : n.y + R + 13 + (key === 'grid' ? 36 : 0);
+        ? n.y - R - 7
+        : n.y + R + 14 + (key === 'grid' ? 36 : 0);
       const lt = svgEl('text');
       lt.setAttribute('x', n.x); lt.setAttribute('y', lblY);
       lt.setAttribute('class', 'lbl'); lt.textContent = n.lbl;
@@ -364,8 +392,8 @@ class PowerFlowCard extends HTMLElement {
       const mx = (s.x + e.x) / 2, my = (s.y + e.y) / 2;
       el.setAttribute('d', `M${s.x},${s.y} Q${mx},${my} ${e.x},${e.y}`);
       const on = fl.active();
-      el.setAttribute('stroke-dasharray', on ? 'none' : '6 5');
-      el.setAttribute('opacity',          on ? '0.75'  : '0.2');
+      el.setAttribute('stroke-dasharray', on ? 'none' : '5 6');
+      el.setAttribute('opacity',          on ? '0.65'  : '0.15');
       el.setAttribute('stroke-width',     on ? '2.5'   : '1.5');
     });
   }
