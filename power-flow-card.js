@@ -35,9 +35,9 @@ const MDI_PATHS = {
 
 const AUTO_COLORS = ['#22c55e','#a855f7','#f59e0b','#06b6d4','#ec4899','#84cc16','#f97316','#6366f1','#14b8a6','#ef4444'];
 
-// Radius per node key — home is groter
-const NODE_R = { home: 36 };
-function getR(key) { return NODE_R[key] || 28; }
+// Radius per node key — home is groter, bat ook speciaal
+const NODE_R = { home: 44, bat: 40 };
+function getR(key) { return NODE_R[key] || 34; }
 
 function getMdiPath(icon) { return MDI_PATHS[icon] || MDI_PATHS['default']; }
 function svgEl(tag) { return document.createElementNS('http://www.w3.org/2000/svg', tag); }
@@ -76,14 +76,20 @@ class PowerFlowCard extends HTMLElement {
       grid_entity:        config.grid_entity        || null,
       battery_entity:     config.battery_entity     || null,
       battery_soc_entity: config.battery_soc_entity || null,
+      // Alternatief voor SOC: som van opgeslagen energie / totale capaciteit
+      battery_stored_energy_entities: Array.isArray(config.battery_stored_energy_entities) ? config.battery_stored_energy_entities : null,
+      battery_capacity_kwh: config.battery_capacity_kwh || null,
       home_entity:        config.home_entity        || null,
       title:              config.title              || null,
       // grid_inverted true  = negatief is afname van net, positief is injectie
       // grid_inverted false = positief is afname, negatief is injectie
-      grid_inverted:    config.grid_inverted    !== undefined ? !!config.grid_inverted    : true,
+      grid_inverted:    config.grid_inverted    !== undefined ? !!config.grid_inverted    : false,
       // battery_inverted true  = positief is ontladen, negatief is laden (Marstek/Victron conventie)
       // battery_inverted false = negatief is ontladen, positief is laden
       battery_inverted: config.battery_inverted !== undefined ? !!config.battery_inverted : true,
+      // battery_entity: één sensor, OF battery_entities: lijst van sensoren (waarden worden opgeteld)
+      battery_entity:   config.battery_entity  || null,
+      battery_entities: Array.isArray(config.battery_entities) ? config.battery_entities : null,
       entities: Array.isArray(config.entities)
         ? config.entities.map((e, i) => ({
             entity: e.entity,
@@ -95,7 +101,7 @@ class PowerFlowCard extends HTMLElement {
       colors: {
         solar:   config.colors?.solar   || '#f59e0b',
         grid:    config.colors?.grid    || '#64748b',
-        battery: config.colors?.battery || '#3b82f6',
+        battery: config.colors?.battery || '#22c55e',
         home:    config.colors?.home    || '#3b82f6',
       },
     };
@@ -132,20 +138,20 @@ class PowerFlowCard extends HTMLElement {
     const extras = cfg.entities;
     const W = 480;
     const extraRows = Math.ceil(extras.length / 3) || 0;
-    const H = (extras.length > 0 ? 310 : 240) + extraRows * 120;
+    const H = (extras.length > 0 ? 350 : 280) + extraRows * 140;
     const cx = W / 2;
-    const cy = extras.length > 0 ? 155 : 120;
+    const cy = extras.length > 0 ? 175 : 140;
 
     // Knooppunten
     const N = {};
     const c = cfg.colors;
-    if (cfg.solar_entity)   N.solar = { x: cx,       y: 52,  col: c.solar,   lbl: 'Zonne-energie', icon: 'mdi:solar-panel' };
-    if (cfg.grid_entity)    N.grid  = { x: 62,        y: cy,  col: c.grid,    lbl: 'Net',           icon: 'mdi:transmission-tower' };
-    if (cfg.battery_entity) N.bat   = { x: W - 62,    y: cy,  col: c.battery, lbl: 'Batterij',      icon: 'mdi:battery-high' };
-    if (cfg.home_entity)    N.home  = { x: cx,        y: cy,  col: c.home,    lbl: 'Huis',          icon: 'mdi:home' };
+    if (cfg.solar_entity)                      N.solar = { x: cx,       y: 58,  col: c.solar,   lbl: 'Zonne-energie', icon: 'mdi:solar-panel' };
+    if (cfg.grid_entity)                       N.grid  = { x: 70,        y: cy,  col: c.grid,    lbl: 'Net',           icon: 'mdi:transmission-tower' };
+    if (cfg.battery_entity || cfg.battery_entities) N.bat = { x: W - 70, y: cy,  col: c.battery, lbl: 'Batterij',      icon: 'mdi:battery-high' };
+    if (cfg.home_entity)                       N.home  = { x: cx,        y: cy,  col: c.home,    lbl: 'Huis',          icon: 'mdi:home' };
 
-    const rowY0 = cy + 130;
-    const gaps = [0, 0, 150, 120];
+    const rowY0 = cy + 150;
+    const gaps = [0, 0, 160, 130];
     for (let i = 0; i < extras.length; i++) {
       const row = Math.floor(i / 3), col = i % 3;
       const rowN = Math.min(3, extras.length - row * 3);
@@ -173,7 +179,7 @@ class PowerFlowCard extends HTMLElement {
     this._flows = [];
     const f = (from, to, col, fn) => this._flows.push({ from, to, col, active: fn, key: `${from}_${to}` });
 
-    if (N.solar && N.home)  f('solar', 'home',  c.solar,   () => solar());
+    if (N.solar && N.home)  f('solar', 'home',  c.solar,   () => solar() && !gridIsExport());
     if (N.solar && N.bat)   f('solar', 'bat',   c.solar,   () => solar() && batIsCharge());
     if (N.solar && N.grid)  f('solar', 'grid',  c.solar,   () => solar() && gridIsExport());
     if (N.grid  && N.home)  f('grid',  'home',  c.grid,    () => gridIsImport());
@@ -192,9 +198,9 @@ class PowerFlowCard extends HTMLElement {
       .card{background:var(--card-background-color,#fff);border-radius:12px;border:1px solid var(--divider-color,rgba(0,0,0,0.1));padding:12px;font-family:var(--paper-font-body1_-_font-family,sans-serif)}
       .title{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--secondary-text-color,#888);text-align:center;margin-bottom:4px}
       svg{width:100%;display:block;overflow:visible}
-      .lbl{font-size:11px;font-weight:600;text-anchor:middle;fill:var(--primary-text-color,#333)}
-      .val{font-size:12px;font-weight:700;text-anchor:middle}
-      .sub{font-size:9px;font-weight:500;text-anchor:middle}
+      .lbl{font-size:13px;font-weight:600;text-anchor:middle;fill:var(--primary-text-color,#333)}
+      .val{font-size:14px;font-weight:700;text-anchor:middle}
+      .sub{font-size:11px;font-weight:500;text-anchor:middle}
     </style>
     <div class="card">
       ${cfg.title ? `<div class="title">${cfg.title}</div>` : ''}
@@ -240,21 +246,34 @@ class PowerFlowCard extends HTMLElement {
       g.appendChild(border);
 
       // Icoon — boven midden van cirkel
-      const sz = isHome ? 20 : 16;
+      const sz = isHome ? 26 : (key === 'bat' ? 22 : 20);
       const ig = svgEl('g');
-      ig.setAttribute('transform', `translate(${n.x - sz/2},${n.y - sz/2 - (isHome ? 8 : 5)}) scale(${sz/24})`);
+      ig.setAttribute('transform', `translate(${n.x - sz/2},${n.y - sz/2 - (isHome ? 10 : key === 'bat' ? 12 : 7)}) scale(${sz/24})`);
       const ip = svgEl('path');
       ip.setAttribute('d', getMdiPath(n.icon)); ip.setAttribute('fill', n.col);
       ig.appendChild(ip); g.appendChild(ig);
 
       // Waarde — onder icoon, binnen cirkel
       const vt = svgEl('text');
-      vt.setAttribute('x', n.x); vt.setAttribute('y', n.y + (isHome ? 19 : 15));
+      vt.setAttribute('x', n.x); vt.setAttribute('y', n.y + (isHome ? 23 : key === 'bat' ? 14 : 19));
       vt.setAttribute('class', 'val'); vt.setAttribute('fill', n.col);
-      vt.setAttribute('font-size', isHome ? '13' : '11');
+      vt.setAttribute('font-size', isHome ? '15' : '13');
       vt.textContent = '—';
       g.appendChild(vt);
       this._valEls[key] = vt;
+
+      // Batterij: aparte SOC regel onder de waarde
+      if (key === 'bat') {
+        const socTxt = svgEl('text');
+        socTxt.setAttribute('x', n.x);
+        socTxt.setAttribute('y', n.y + 30);
+        socTxt.setAttribute('class', 'val');
+        socTxt.setAttribute('fill', n.col);
+        socTxt.setAttribute('font-size', '13');
+        socTxt.textContent = '—%';
+        g.appendChild(socTxt);
+        this._valEls['bat-soc'] = socTxt;
+      }
 
       // Grid sub-labels (buiten cirkel)
       if (key === 'grid') {
@@ -291,9 +310,16 @@ class PowerFlowCard extends HTMLElement {
     this._D = {
       solar: this._val(cfg.solar_entity),
       grid:  this._val(cfg.grid_entity),
-      bat:   this._val(cfg.battery_entity),
+      bat:   cfg.battery_entities
+               ? cfg.battery_entities.reduce((sum, e) => sum + this._val(e), 0)
+               : this._val(cfg.battery_entity),
       home:  this._val(cfg.home_entity),
-      soc:   this._val(cfg.battery_soc_entity),
+      soc:   cfg.battery_stored_energy_entities && cfg.battery_capacity_kwh
+               ? Math.min(100, Math.round(
+                   cfg.battery_stored_energy_entities.reduce((sum, e) => sum + this._val(e), 0)
+                   / cfg.battery_capacity_kwh * 100
+                 ))
+               : this._val(cfg.battery_soc_entity),
     };
     cfg.entities.forEach((e, i) => { this._D[`ex${i}`] = this._val(e.entity); });
     this._updateLabels();
@@ -306,17 +332,19 @@ class PowerFlowCard extends HTMLElement {
     if (this._valEls.solar) this._valEls.solar.textContent = this._fmt(D.solar);
     if (this._valEls.home)  this._valEls.home.textContent  = this._fmt(D.home);
     if (this._valEls.bat) {
-      const soc = cfg.battery_soc_entity ? ` ${Math.round(D.soc)}%` : '';
-      this._valEls.bat.textContent = this._fmt(Math.abs(D.bat)) + soc;
+      this._valEls.bat.textContent = this._fmt(Math.abs(D.bat));
+      if (this._valEls['bat-soc'] && (cfg.battery_soc_entity || (cfg.battery_stored_energy_entities && cfg.battery_capacity_kwh))) {
+        this._valEls['bat-soc'].textContent = `${Math.round(D.soc)}%`;
+      }
     }
     if (this._valEls.grid) {
       const gi = cfg.grid_inverted;
       this._valEls.grid.textContent = this._fmt(Math.abs(D.grid));
-      // gi=true: grid<0 = afname (←), grid>0 = injectie (→)
+      // gi=false: grid>0 = afname (←), grid<0 = injectie (→)
       const imp = gi ? Math.max(0, -D.grid) : Math.max(0,  D.grid);
       const exp = gi ? Math.max(0,  D.grid) : Math.max(0, -D.grid);
-      if (this._subEls.gi) this._subEls.gi.textContent = `← ${this._fmt(imp)}`;
-      if (this._subEls.ge) this._subEls.ge.textContent = `→ ${this._fmt(exp)}`;
+      if (this._subEls.gi) this._subEls.gi.textContent = `→ ${this._fmt(imp)}`;
+      if (this._subEls.ge) this._subEls.ge.textContent = `← ${this._fmt(exp)}`;
     }
     cfg.entities.forEach((_, i) => {
       if (this._valEls[`ex${i}`]) this._valEls[`ex${i}`].textContent = this._fmt(D[`ex${i}`] || 0);
@@ -330,8 +358,11 @@ class PowerFlowCard extends HTMLElement {
       if (!el) return;
       const a = this._nodes[fl.from], b = this._nodes[fl.to];
       if (!a || !b) return;
-      const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
-      el.setAttribute('d', `M${a.x},${a.y} Q${mx},${my} ${b.x},${b.y}`);
+      // Lijn loopt van rand tot rand, niet van centrum tot centrum
+      const s = this._edgePt(a, b, fl.from);
+      const e = this._edgePt(b, a, fl.to);
+      const mx = (s.x + e.x) / 2, my = (s.y + e.y) / 2;
+      el.setAttribute('d', `M${s.x},${s.y} Q${mx},${my} ${e.x},${e.y}`);
       const on = fl.active();
       el.setAttribute('stroke-dasharray', on ? 'none' : '6 5');
       el.setAttribute('opacity',          on ? '0.75'  : '0.2');
@@ -406,6 +437,15 @@ class PowerFlowCard extends HTMLElement {
     this._raf = requestAnimationFrame(loop);
   }
 
+  connectedCallback() {
+    if (this._config && !this._raf) {
+      this._particles.forEach(p => p.dot && p.dot.remove());
+      this._particles = [];
+      this._tick = 0;
+      this._startAnim();
+    }
+  }
+
   disconnectedCallback() {
     if (this._raf) { cancelAnimationFrame(this._raf); this._raf = null; }
     if (this._visHandler) { document.removeEventListener('visibilitychange', this._visHandler); this._visHandler = null; }
@@ -414,6 +454,8 @@ class PowerFlowCard extends HTMLElement {
   getCardSize() { return 5; }
 }
 
-customElements.define('power-flow-card', PowerFlowCard);
+if (!customElements.get('power-flow-card')) {
+  customElements.define('power-flow-card', PowerFlowCard);
+}
 window.customCards = window.customCards || [];
 window.customCards.push({ type: 'power-flow-card', name: 'Power Flow Card', description: 'Animated power flow card.', preview: true });
