@@ -1,5 +1,5 @@
 /**
- * Power Flow Card v3.0.2
+ * Power Flow Card v3.0.3
  *
  * Layout:
  *   Links kolom (boven→onder): Net, Zonne-energie, Batterij
@@ -204,27 +204,27 @@ class PowerFlowCard extends HTMLElement {
     if (hasBat)   srcList.push({ key: 'bat',   col: c.battery, lbl: this._cfg.labels.battery, icon: 'mdi:battery-high' });
 
     const srcBlockH = srcList.length > 0 ? (srcList.length - 1) * S_GAP + R_S * 2 + LBL_H : 0;
-    const conBlockH = ents.length > 0 ? (ents.length - 1) * C_GAP + R_C * 2 + LBL_H : 0;
-    const contentH  = Math.max(srcBlockH, R_H * 2 + LBL_H, conBlockH);
+    // Fixed content height based on sources only — viewBox height grows dynamically
+    const contentH  = Math.max(srcBlockH, R_H * 2 + LBL_H);
     const H         = contentH + PAD_TOP * 2 + 24;
-    const midY      = PAD_TOP + contentH / 2;
+    const midY      = PAD_TOP + contentH / 2;  // FIXED — never changes
 
-    // Source Y: centered around midY
+    // Source Y: centered around fixed midY
     const srcStartY = midY - ((srcList.length - 1) * S_GAP) / 2;
-    const srcPos    = {};  // key → {x, y}
+    const srcPos    = {};
     srcList.forEach((s, i) => {
       srcPos[s.key] = { x: SX, y: srcStartY + i * S_GAP };
     });
 
-    // Consumer Y positions
+    // Consumer Y positions — used as base offsets, actual positions computed dynamically
     const conStartY = PAD_TOP + LBL_H + R_C;
     const conYs     = ents.map((e, i) => conStartY + i * C_GAP);
 
-    // Bus extents
+    // Bus extents (initial, updated dynamically)
     const busTop    = conYs.length > 0 ? conYs[0]                : midY;
     const busBottom = conYs.length > 0 ? conYs[conYs.length - 1] : midY;
 
-    // Store layout (all positions in one place, no global vars)
+    // Store layout — HY and srcPos are FIXED, only viewBox height changes
     this._L = { W, H, R_H, R_S, R_C, SX, HX, HY: midY, BX, CX, C_GAP, PAD_TOP, LBL_H, srcBlockH, srcPos, srcList, conYs, busTop, busBottom, c };
 
     // ── HTML shell ────────────────────────────────────────────────────────────
@@ -493,16 +493,23 @@ class PowerFlowCard extends HTMLElement {
     const cfg = this._cfg;
     const c   = L.c;
 
-    // ── Dynamic SVG height based on active consumers ───────────────────────
+    // ── Dynamic SVG height: grows downward based on active consumers ──────────
+    // Sources and home stay at their fixed Y positions (L.HY never changes)
     const activeCount = cfg.entities.filter((e, i) => this._exOn(i)).length;
-    const conBlockH   = activeCount > 0 ? (activeCount - 1) * L.C_GAP + L.R_C * 2 + L.LBL_H : 0;
-    const contentH    = Math.max(L.srcBlockH, L.R_H * 2 + L.LBL_H, conBlockH);
-    const newH        = contentH + L.PAD_TOP * 2 + 24;
-    const newMidY     = L.PAD_TOP + contentH / 2;
-    if (this._E.svg) this._E.svg.setAttribute('viewBox', `0 0 ${L.W} ${newH}`);
+    const HX = L.HX, HY = L.HY, RH = L.R_H;  // FIXED positions
 
-    // Update home Y if it shifted
-    const HX = L.HX, HY = newMidY, RH = L.R_H;
+    if (this._E.svg) {
+      const conBlockH = activeCount > 0 ? (activeCount - 1) * L.C_GAP + L.R_C * 2 + L.LBL_H : 0;
+      // ViewBox height = enough to show sources AND active consumers, starting from top
+      const neededH = Math.max(
+        L.srcBlockH + L.PAD_TOP * 2 + 24,          // source column height
+        HY + conBlockH / 2 + L.R_C + L.PAD_TOP     // consumers below home center
+      );
+      this._E.svg.setAttribute('viewBox', `0 0 ${L.W} ${neededH}`);
+    }
+
+    // Home node stays at fixed HY — no transform needed
+    if (this._E.homeG) this._E.homeG.setAttribute('transform', '');
 
     // Helper: set line from circle edge to circle edge
     const setLine = (el, x1, y1, r1, x2, y2, r2, col, on) => {
@@ -648,11 +655,8 @@ class PowerFlowCard extends HTMLElement {
           return { x: ax+dx/d*R, y: ay+dy/d*R };
         };
 
-        // Recalculate dynamic HY same as _updateLines
-        const activeCount2 = cfg.entities.filter((e, i) => this._exOn(i)).length;
-        const conBlockH2   = activeCount2 > 0 ? (activeCount2 - 1) * L.C_GAP + L.R_C * 2 + L.LBL_H : 0;
-        const contentH2    = Math.max(L.srcBlockH, L.R_H * 2 + L.LBL_H, conBlockH2);
-        const HX = L.HX, HY = L.PAD_TOP + contentH2 / 2, RH = L.R_H, RS = L.R_S, RC = L.R_C;
+        // Use fixed HY — sources and home never move
+        const HX = L.HX, HY = L.HY, RH = L.R_H, RS = L.R_S, RC = L.R_C;
         const sp = L.srcPos['solar'];
         const gp = L.srcPos['grid'];
         const bp = L.srcPos['bat'];
