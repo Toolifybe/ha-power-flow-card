@@ -594,18 +594,7 @@ class PowerFlowCard extends HTMLElement {
     }
 
     const bvEl = EL['bus_v'];
-    if (bvEl) {
-      if (anyOn) {
-        const ys = Object.values(activeConYs);
-        bvEl.setAttribute('display', '');
-        bvEl.setAttribute('x1', L.BX); bvEl.setAttribute('x2', L.BX);
-        bvEl.setAttribute('y1', Math.min(...ys)); bvEl.setAttribute('y2', Math.max(...ys));
-        bvEl.setAttribute('stroke', '#22c55e'); bvEl.setAttribute('stroke-width', '2');
-        bvEl.setAttribute('stroke-dasharray', 'none'); bvEl.setAttribute('opacity', '0.6');
-      } else {
-        bvEl.setAttribute('display', 'none');
-      }
-    }
+    if (bvEl) bvEl.setAttribute('display', 'none');
 
     cfg.entities.forEach((e, i) => {
       const el = EL['con_' + i];
@@ -748,13 +737,21 @@ class PowerFlowCard extends HTMLElement {
                 { x: L.CX - RC, y: cy },
               ], e.color, 4);
             } else {
-              // Rounded bend — approximate with extra waypoints
+              // Interpolate along Q bezier for smooth dot movement through the curve
               const bendY = cy < HY ? cy + r : cy - r;
+              // Q bezier from (BX, bendY) with control (BX, cy) to (BX+r, cy)
+              const curvePts = [];
+              for (let t = 0; t <= 1.01; t += 0.25) {
+                const tt = Math.min(t, 1);
+                curvePts.push({
+                  x: (1-tt)*(1-tt)*L.BX     + 2*(1-tt)*tt*L.BX        + tt*tt*(L.BX+r),
+                  y: (1-tt)*(1-tt)*bendY     + 2*(1-tt)*tt*cy           + tt*tt*cy,
+                });
+              }
               spawn([
-                { x: HX + RH,   y: HY },
-                { x: L.BX,      y: HY },
-                { x: L.BX,      y: bendY },
-                { x: L.BX + r,  y: cy },
+                { x: HX + RH, y: HY },
+                { x: L.BX,    y: HY },
+                ...curvePts,
                 { x: L.CX - RC, y: cy },
               ], e.color, 4);
             }
