@@ -1,169 +1,247 @@
 # Power Flow Card
 
-A lightweight, animated power flow card for Home Assistant. No dependencies, no build step — just one JS file.
+[![Version](https://img.shields.io/badge/version-3.0.0-blue.svg)](https://github.com/your-repo/ha-power-flow-card)
+[![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
 
-Visualises energy flows between solar panels, grid, battery and home consumption with animated dots on the flow lines. Individual consumers (PC, TV, ...) can be added via YAML.
+Animated power flow card for Home Assistant. Visualises real-time energy flows between solar panels, grid, battery, home and individual consumers.
 
-[![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
-![Version](https://img.shields.io/badge/version-2.3.0-blue.svg)
+## Features
 
-## Layout
+- Animated flow dots showing direction and source of energy
+- Smart flow logic: solar surplus automatically charges battery
+- Consumers with 0 W are automatically hidden and re-appear when active
+- Active consumers dynamically re-centre alongside the home node
+- Debounce protection: prevents consumers from flickering during brief sensor glitches
+- Fully configurable colours, labels and node names via YAML
 
-The home node sits at the centre. Fixed nodes (solar, grid, battery) are positioned around it. Individual consumers appear below in rows of up to 3. Inactive connections are shown as dashed lines. Animated dots travel along active flow lines from circle edge to circle edge.
+---
 
 ## Installation
 
-### Via HACS (recommended)
+1. Copy `power-flow-card.js` to `/config/www/community/ha-power-flow-card/`
+2. Delete any existing `.gz` file in that same folder
+3. Add the resource in Home Assistant:
+   - Go to **Settings → Dashboards → Resources**
+   - Add: `/local/community/ha-power-flow-card/power-flow-card.js` (type: JavaScript module)
+4. Hard-refresh your browser (Ctrl+Shift+R)
 
-1. Open HACS in Home Assistant
-2. Go to **Frontend**
-3. Click the three dots → **Custom repositories**
-4. Add your GitHub repository URL, category: **Lovelace**
-5. Search for **Power Flow Card** and install
+---
 
-### Manual
-
-1. Copy `power-flow-card.js` to `/config/www/`
-2. Go to **Settings → Dashboards → Resources**
-3. Add `/local/power-flow-card.js` as a **JavaScript module**
-
-## Basic configuration
-
-```yaml
-type: custom:power-flow-card
-solar_entity: sensor.envoy_121635002337_current_power_production
-grid_entity: sensor.elektriciteit_meter_power
-battery_entities:
-  - sensor.marstek_venus_modbus_ac_power
-  - sensor.marstek_venus_modbus_ac_power_2
-  - sensor.marstek_venus_modbus_ac_power_3
-battery_stored_energy_entities:
-  - sensor.marstek_venus_modbus_stored_energy
-  - sensor.marstek_venus_modbus_stored_energy_2
-  - sensor.marstek_venus_modbus_stored_energy_3
-battery_capacity_kwh: 15.36
-battery_inverted: true
-home_entity: sensor.werkelijk_verbruik
-title: Energiestroom
-entities:
-  - entity: sensor.pc_power
-    name: PC
-    icon: mdi:desktop-classic
-    color: '#22c55e'
-  - entity: sensor.tv_power
-    name: TV Living
-    icon: mdi:television
-    color: '#a855f7'
-```
-
-## All options
-
-### Main options
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `solar_entity` | string | — | Sensor for solar production (W) |
-| `grid_entity` | string | — | Sensor for grid power (W) |
-| `grid_inverted` | bool | `false` | `false` = positive is import, negative is export. `true` = negative is import, positive is export |
-| `battery_entity` | string | — | Single battery power sensor (W) |
-| `battery_entities` | list | — | Multiple battery power sensors (W) — values are summed |
-| `battery_soc_entity` | string | — | Single battery state of charge sensor (%) |
-| `battery_stored_energy_entities` | list | — | Multiple stored energy sensors (kWh) — used to calculate total SOC |
-| `battery_capacity_kwh` | number | — | Total battery capacity in kWh — required when using `battery_stored_energy_entities` |
-| `battery_inverted` | bool | `true` | `true` = positive is discharging, negative is charging (Marstek/Victron). `false` = opposite |
-| `home_entity` | string | — | Sensor for total home consumption (W) |
-| `title` | string | — | Optional title shown above the card |
-| `entities` | list | — | Individual consumers (see below) |
-| `colors.solar` | string | `#f59e0b` | Color for solar node and flows |
-| `colors.grid` | string | `#64748b` | Color for grid node and flows |
-| `colors.battery` | string | `#22c55e` | Color for battery node and flows |
-| `colors.home` | string | `#3b82f6` | Color for home node |
-
-### Per-entity options (`entities`)
-
-| Option | Type | Required | Description |
-|--------|------|----------|-------------|
-| `entity` | string | ✓ | Entity ID of the power sensor (W) |
-| `name` | string | — | Display name (defaults to entity ID) |
-| `icon` | string | — | MDI icon (see list below) |
-| `color` | string | — | Hex color (defaults to auto-assigned) |
-
-### Available icons
-
-| Icon | Code |
-|------|------|
-| Solar panel | `mdi:solar-panel` |
-| Transmission tower | `mdi:transmission-tower` |
-| Battery | `mdi:battery-high` |
-| Home | `mdi:home` |
-| Desktop PC | `mdi:desktop-classic` |
-| Television | `mdi:television` |
-| Wall socket | `mdi:power-socket-eu` |
-| Electric car | `mdi:car-electric` |
-| Washing machine | `mdi:washing-machine` |
-| Heat pump | `mdi:heat-pump` |
-| Light bulb | `mdi:lightbulb` |
-| Lightning bolt | `mdi:lightning-bolt` |
-
-## Flow logic
-
-| Flow | Active when |
-|------|-------------|
-| Solar → Home | Solar > 0 and no grid export |
-| Solar → Battery | Solar > 0 and battery is charging |
-| Solar → Grid | Solar > 0 and grid is exporting |
-| Grid → Home | Grid is importing |
-| Home → Grid | Grid is exporting and no solar |
-| Battery → Home | Battery is discharging |
-| Home → Battery | Battery is charging and no solar |
-| Home → Consumer | Consumer power > 0 |
-
-## Battery SOC calculation
-
-Two options for displaying the battery state of charge:
-
-**Option 1 — single SOC sensor:**
-```yaml
-battery_soc_entity: sensor.marstek_venus_modbus_battery_soc
-```
-
-**Option 2 — calculate from stored energy (recommended for multiple batteries):**
-```yaml
-battery_stored_energy_entities:
-  - sensor.marstek_venus_modbus_stored_energy
-  - sensor.marstek_venus_modbus_stored_energy_2
-  - sensor.marstek_venus_modbus_stored_energy_3
-battery_capacity_kwh: 15.36
-```
-SOC is calculated as `(sum of stored energy in kWh / battery_capacity_kwh) * 100`.
-
-## Custom colors
+## Minimal configuration
 
 ```yaml
 type: custom:power-flow-card
 solar_entity: sensor.solar_power
 grid_entity: sensor.grid_power
 home_entity: sensor.home_power
-colors:
-  solar:   '#f59e0b'
-  grid:    '#64748b'
-  battery: '#22c55e'
-  home:    '#3b82f6'
 ```
 
-## All entities are optional
+---
 
-The card adapts its layout to whichever nodes are configured:
+## Full configuration
 
 ```yaml
 type: custom:power-flow-card
-solar_entity: sensor.solar_power
-home_entity: sensor.home_power
+title: Energy Flow
+
+# ── Sources ────────────────────────────────────────────────────────────────────
+solar_entity: sensor.envoy_current_power_production
+grid_entity: sensor.elektriciteit_meter_power
+home_entity: sensor.werkelijk_verbruik
+
+# Single battery
+battery_entity: sensor.battery_power
+
+# OR multiple batteries (values are summed)
+battery_entities:
+  - sensor.marstek_venus_modbus_ac_power
+  - sensor.marstek_venus_modbus_ac_power_2
+  - sensor.marstek_venus_modbus_ac_power_3
+
+# State of charge via direct sensor
+battery_soc_entity: sensor.battery_soc
+
+# OR state of charge calculated from stored energy / capacity
+battery_stored_energy_entities:
+  - sensor.marstek_venus_modbus_stored_energy
+  - sensor.marstek_venus_modbus_stored_energy_2
+  - sensor.marstek_venus_modbus_stored_energy_3
+battery_capacity_kwh: 15.36
+
+# ── Polarity ───────────────────────────────────────────────────────────────────
+# grid_inverted:
+#   false (default) = positive value means grid import, negative means export
+#   true            = negative value means grid import, positive means export
+grid_inverted: false
+
+# battery_inverted:
+#   true (default)  = positive means discharging, negative means charging (Marstek/Victron)
+#   false           = negative means discharging, positive means charging
+battery_inverted: true
+
+# ── Debounce ───────────────────────────────────────────────────────────────────
+# Number of seconds a consumer must read 0 W before it disappears.
+# Prevents consumers from flickering due to brief sensor glitches.
+# Default: 8. Set to 0 to hide immediately.
+debounce_seconds: 8
+
+# ── Colours ────────────────────────────────────────────────────────────────────
+# Border colour of each node circle. Accepts any hex colour.
+colors:
+  solar:   '#f59e0b'    # yellow  (default)
+  grid:    '#6366f1'    # blue    (default)
+  battery: '#ec4899'    # pink    (default)
+  home:    '#f97316'    # orange  (default)
+
+# ── Labels ─────────────────────────────────────────────────────────────────────
+# Display name shown above each node circle.
+labels:
+  solar:   Solar         # default: Zonne-energie
+  grid:    Grid          # default: Net
+  battery: Battery       # default: Batterij
+  home:    Home          # default: Huis
+
+# ── Individual consumers ───────────────────────────────────────────────────────
+# Consumers at 0 W are hidden automatically and reappear when active.
+# Active consumers are dynamically centred alongside the home node.
 entities:
-  - entity: sensor.pc_power
+  - entity: sensor.sonoff_100255c4fd_power
     name: PC
+    icon: mdi:desktop-classic
+    color: '#22c55e'
+
+  - entity: sensor.sonoff_100255d61c_power
+    name: TV
+    icon: mdi:television
+    color: '#a855f7'
+
+  - entity: sensor.sonoff_100255c06d_power
+    name: Dishwasher
+    icon: mdi:dishwasher
+    color: '#06b6d4'
+
+  - entity: sensor.sonoff_10023c6126_power
+    name: Washing machine
+    icon: mdi:washing-machine
+    color: '#f59e0b'
+
+  - entity: sensor.sonoff_10023c5a80_power
+    name: Dryer
+    color: '#84cc16'
+
+  - entity: sensor.sonoff_100187402c_power
+    name: Boiler
+    icon: mdi:water-heater
+    color: '#22c55e'
 ```
 
-## License
+---
 
-MIT
+## Configuration reference
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `title` | string | — | Card title |
+| `solar_entity` | entity | — | Solar power sensor (W) |
+| `grid_entity` | entity | — | Grid power sensor (W) |
+| `home_entity` | entity | — | Home consumption sensor (W) |
+| `battery_entity` | entity | — | Battery power sensor (W) |
+| `battery_entities` | list | — | List of battery sensors (summed) |
+| `battery_soc_entity` | entity | — | Battery state of charge sensor (%) |
+| `battery_stored_energy_entities` | list | — | Stored energy sensors (Wh or kWh) |
+| `battery_capacity_kwh` | number | — | Total battery capacity in kWh |
+| `grid_inverted` | bool | `false` | Invert grid sensor polarity |
+| `battery_inverted` | bool | `true` | Invert battery sensor polarity |
+| `debounce_seconds` | number | `8` | Seconds at 0 W before a consumer is hidden |
+| `colors.solar` | hex | `#f59e0b` | Solar node border colour |
+| `colors.grid` | hex | `#6366f1` | Grid node border colour |
+| `colors.battery` | hex | `#ec4899` | Battery node border colour |
+| `colors.home` | hex | `#f97316` | Home node border colour |
+| `labels.solar` | string | `Zonne-energie` | Solar node display name |
+| `labels.grid` | string | `Net` | Grid node display name |
+| `labels.battery` | string | `Batterij` | Battery node display name |
+| `labels.home` | string | `Huis` | Home node display name |
+| `entities` | list | — | Individual consumer nodes |
+| `entities[].entity` | entity | — | Power sensor (W) |
+| `entities[].name` | string | entity id | Display name |
+| `entities[].icon` | string | — | MDI icon (e.g. `mdi:desktop-classic`) |
+| `entities[].color` | hex | auto | Node border colour |
+
+---
+
+## Flow logic
+
+| Situation | Animation |
+|-----------|-----------|
+| Solar output > home consumption | Yellow dots: solar → home **and** solar → battery |
+| Solar output ≤ home consumption | Yellow dots: solar → home only |
+| Grid import | Blue dots: grid → home |
+| Grid export | Blue dots: home → grid |
+| Battery charging from solar | Yellow dots: solar → battery |
+| Battery discharging | Pink dots: battery → home |
+| Consumer active | Green dots: home → consumer |
+| Consumer at 0 W | Consumer is hidden (with debounce) |
+
+---
+
+## Available MDI icons
+
+| Icon | YAML value |
+|------|------------|
+| Desktop monitor | `mdi:desktop-classic` |
+| Television | `mdi:television` |
+| Electric car | `mdi:car-electric` |
+| Heat pump | `mdi:heat-pump` |
+| Light bulb | `mdi:lightbulb` |
+| Lightning bolt | `mdi:lightning-bolt` |
+| Power socket | `mdi:power-socket-eu` |
+| Washing machine | `mdi:washing-machine` |
+| Dishwasher | `mdi:dishwasher` |
+| Water heater / boiler | `mdi:water-heater` |
+
+Browse more icons at [materialdesignicons.com](https://materialdesignicons.com)
+
+---
+
+## Layout
+
+```
+  [Grid]         │
+  [Solar]        │    [Home]  ────── [Consumer 1]
+  [Battery]      │            ────── [Consumer 2]
+                 │            ────── [Consumer 3]
+```
+
+- Sources are stacked in the left column: grid top, solar middle, battery bottom
+- Home sits in the centre
+- Consumers are on the right, dynamically centred on the home node's vertical position
+- When a consumer drops to 0 W it disappears; the remaining ones reposition automatically
+
+---
+
+## Troubleshooting
+
+**Card does not load / `customElements` error**
+→ Delete the `.gz` file next to the `.js` in `/config/www/community/ha-power-flow-card/` and hard-refresh.
+
+**Values are incorrect**
+→ Check the raw sensor values in Developer Tools → States. Verify that `grid_inverted` and `battery_inverted` match your hardware's sign convention.
+
+**Consumer keeps flickering in and out**
+→ Increase `debounce_seconds` (e.g. to `15` or `30`) to filter out noisy sensor readings.
+
+**Dashboard layout breaks**
+→ Make sure you are running v3.0.0 or later. Earlier versions contained a bug where the card rebuilt its DOM on every data update, which corrupted the HA grid layout.
+
+---
+
+## Changelog
+
+### v3.0.0
+- Complete rewrite — stable DOM, no more layout corruption
+- Consumers at 0 W are hidden; active consumers auto-centre on home node
+- Configurable debounce via `debounce_seconds`
+- Configurable node colours via `colors:`
+- Configurable node labels via `labels:`
+- Solar surplus detection: charges battery only when solar > home consumption
+- Correct flow direction for all grid/battery combinations
