@@ -622,18 +622,14 @@ class PowerFlowCard extends HTMLElement {
         el.setAttribute('display', on ? '' : 'none');
         if (on && activeConYs[i] !== undefined) {
           const cy  = activeConYs[i];
-          const r   = 10; // corner radius
-          // Rounded L-path: from bus X at home Y, down to consumer Y, then right to consumer
-          // If cy === HY: straight horizontal line, no bend needed
+          const r   = 18; // corner radius — larger for smoother look
+          // Rounded L-path from bus vertical line down/up to consumer
           let d;
           if (Math.abs(cy - HY) < 2) {
-            // Same height as home — straight line
             d = `M${L.BX},${HY} L${L.CX - L.R_C},${cy}`;
           } else if (cy < HY) {
-            // Consumer is above home center — bend goes up then right
             d = `M${L.BX},${HY} L${L.BX},${cy + r} Q${L.BX},${cy} ${L.BX + r},${cy} L${L.CX - L.R_C},${cy}`;
           } else {
-            // Consumer is below home center — bend goes down then right
             d = `M${L.BX},${HY} L${L.BX},${cy - r} Q${L.BX},${cy} ${L.BX + r},${cy} L${L.CX - L.R_C},${cy}`;
           }
           el.setAttribute('d', d);
@@ -744,7 +740,7 @@ class PowerFlowCard extends HTMLElement {
           activeIdxs2.forEach((origIdx, pos) => {
             const cy = startY2 + pos * L.C_GAP;
             const e  = cfg.entities[origIdx];
-            const r  = 10;
+            const r  = 18;
             if (Math.abs(cy - HY) < 2) {
               // Straight line
               spawn([
