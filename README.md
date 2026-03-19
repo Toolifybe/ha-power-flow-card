@@ -1,6 +1,6 @@
 # Power Flow Card
 
-[![Version](https://img.shields.io/badge/version-3.0.1-blue.svg)](https://github.com/your-repo/ha-power-flow-card)
+[![Version](https://img.shields.io/badge/version-3.0.2-blue.svg)](https://github.com/your-repo/ha-power-flow-card)
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
 
 Animated power flow card for Home Assistant. Visualises real-time energy flows between solar panels, grid, battery, home and individual consumers.
@@ -105,31 +105,31 @@ labels:
 # Consumers at 0 W are hidden automatically and reappear when active.
 # Active consumers are dynamically centred alongside the home node.
 entities:
-  - entity: sensor.power1
+  - entity: sensor.sonoff_100255c4fd_power
     name: PC
     icon: mdi:desktop-classic
     color: '#22c55e'
 
-  - entity: sensor.power2
+  - entity: sensor.sonoff_100255d61c_power
     name: TV
     icon: mdi:television
     color: '#a855f7'
 
-  - entity: sensor.power3
+  - entity: sensor.sonoff_100255c06d_power
     name: Dishwasher
     icon: mdi:dishwasher
     color: '#06b6d4'
 
-  - entity: sensor.power4
+  - entity: sensor.sonoff_10023c6126_power
     name: Washing machine
     icon: mdi:washing-machine
     color: '#f59e0b'
 
-  - entity: sensor.power5
+  - entity: sensor.sonoff_10023c5a80_power
     name: Dryer
     color: '#84cc16'
 
-  - entity: sensor.power6
+  - entity: sensor.sonoff_100187402c_power
     name: Boiler
     icon: mdi:water-heater
     color: '#22c55e'
@@ -236,6 +236,15 @@ Browse more icons at [materialdesignicons.com](https://materialdesignicons.com)
 ---
 
 ## Changelog
+
+### v3.0.2
+- Card height now dynamically adjusts to the number of active consumers — no more excess whitespace when few consumers are active
+- Home node vertically re-centres as consumers appear and disappear
+- Consumer nodes without an `icon:` now show only the watt value, centred inside the circle (no default fallback icon)
+
+### v3.0.1
+- Consumers without an `icon:` in YAML no longer show a default fallback circle icon
+- Value text is vertically centred inside the circle when no icon is present
 
 ### v3.0.0
 - Complete rewrite — stable DOM, no more layout corruption

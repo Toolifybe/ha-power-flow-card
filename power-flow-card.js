@@ -1,5 +1,5 @@
 /**
- * Power Flow Card v3.0.1
+ * Power Flow Card v3.0.2
  *
  * Layout:
  *   Links kolom (boven→onder): Net, Zonne-energie, Batterij
@@ -225,7 +225,7 @@ class PowerFlowCard extends HTMLElement {
     const busBottom = conYs.length > 0 ? conYs[conYs.length - 1] : midY;
 
     // Store layout (all positions in one place, no global vars)
-    this._L = { W, H, R_H, R_S, R_C, SX, HX, HY: midY, BX, CX, C_GAP, srcPos, srcList, conYs, busTop, busBottom, c };
+    this._L = { W, H, R_H, R_S, R_C, SX, HX, HY: midY, BX, CX, C_GAP, PAD_TOP, LBL_H, srcBlockH, srcPos, srcList, conYs, busTop, busBottom, c };
 
     // ── HTML shell ────────────────────────────────────────────────────────────
     this.shadowRoot.innerHTML = `<style>
@@ -246,7 +246,7 @@ class PowerFlowCard extends HTMLElement {
     </style>
     <div class="card">
       ${cfg.title ? `<div class="ttl">${cfg.title}</div>` : ''}
-      <svg viewBox="0 0 ${W} ${H}">
+      <svg id="svg" viewBox="0 0 ${W} ${H}">
         <g id="lines"></g>
         <g id="dots"></g>
         <g id="nodes"></g>
@@ -254,11 +254,12 @@ class PowerFlowCard extends HTMLElement {
     </div>`;
 
     const sr    = this.shadowRoot;
+    const svg    = sr.getElementById('svg');
     const linesG = sr.getElementById('lines');
     const dotsG  = sr.getElementById('dots');
     const nodesG = sr.getElementById('nodes');
 
-    this._E = { dotsG, L: {}, V: {}, S: {}, CG: {} };  // L=lines, V=values, S=subs, CG=consumer groups
+    this._E = { svg, dotsG, L: {}, V: {}, S: {}, CG: {} };  // L=lines, V=values, S=subs, CG=consumer groups
 
     // ── Lines ─────────────────────────────────────────────────────────────────
 
@@ -391,6 +392,7 @@ class PowerFlowCard extends HTMLElement {
       valT.setAttribute('font-size', '14'); valT.setAttribute('font-weight', '700');
       valT.setAttribute('fill', c.home); valT.textContent = '--';
       g.appendChild(valT); this._E.V['home'] = valT;
+      this._E.homeG = g;
       nodesG.appendChild(g);
     }
 
@@ -411,13 +413,16 @@ class PowerFlowCard extends HTMLElement {
       circ.setAttribute('fill', 'none'); circ.setAttribute('stroke', e.color); circ.setAttribute('stroke-width', '2.5');
       g.appendChild(circ);
 
-      const ig = pfcEl('g');
-      ig.setAttribute('transform', `translate(${CX - 8},${cy - 8 - 4}) scale(0.666)`);
-      const ip = pfcEl('path'); ip.setAttribute('d', pfcPath(e.icon)); ip.setAttribute('fill', e.color);
-      ig.appendChild(ip); g.appendChild(ig);
+      if (e.icon && e.icon !== 'default') {
+        const ig = pfcEl('g');
+        ig.setAttribute('transform', `translate(${CX - 8},${cy - 8 - 4}) scale(0.666)`);
+        const ip = pfcEl('path'); ip.setAttribute('d', pfcPath(e.icon)); ip.setAttribute('fill', e.color);
+        ig.appendChild(ip); g.appendChild(ig);
+      }
 
       const valT = pfcEl('text');
-      valT.setAttribute('x', CX); valT.setAttribute('y', cy + 12);
+      valT.setAttribute('x', CX);
+      valT.setAttribute('y', (e.icon && e.icon !== 'default') ? cy + 12 : cy + 5);
       valT.setAttribute('text-anchor', 'middle');
       valT.setAttribute('font-size', '12'); valT.setAttribute('font-weight', '700');
       valT.setAttribute('fill', e.color); valT.textContent = '--';
@@ -488,6 +493,17 @@ class PowerFlowCard extends HTMLElement {
     const cfg = this._cfg;
     const c   = L.c;
 
+    // ── Dynamic SVG height based on active consumers ───────────────────────
+    const activeCount = cfg.entities.filter((e, i) => this._exOn(i)).length;
+    const conBlockH   = activeCount > 0 ? (activeCount - 1) * L.C_GAP + L.R_C * 2 + L.LBL_H : 0;
+    const contentH    = Math.max(L.srcBlockH, L.R_H * 2 + L.LBL_H, conBlockH);
+    const newH        = contentH + L.PAD_TOP * 2 + 24;
+    const newMidY     = L.PAD_TOP + contentH / 2;
+    if (this._E.svg) this._E.svg.setAttribute('viewBox', `0 0 ${L.W} ${newH}`);
+
+    // Update home Y if it shifted
+    const HX = L.HX, HY = newMidY, RH = L.R_H;
+
     // Helper: set line from circle edge to circle edge
     const setLine = (el, x1, y1, r1, x2, y2, r2, col, on) => {
       if (!el) return;
@@ -507,32 +523,38 @@ class PowerFlowCard extends HTMLElement {
     const gp = L.srcPos['grid'];
     if (gp && EL['src_grid']) {
       const on = this._gridImp() || this._gridExp();
-      setLine(EL['src_grid'], gp.x, gp.y, L.R_S, L.HX, L.HY, L.R_H, c.grid, on);
+      setLine(EL['src_grid'], gp.x, gp.y, L.R_S, HX, HY, RH, c.grid, on);
     }
 
     // Solar → home
     const sp = L.srcPos['solar'];
     if (sp && EL['src_solar']) {
       const on = this._solar();
-      setLine(EL['src_solar'], sp.x, sp.y, L.R_S, L.HX, L.HY, L.R_H, c.solar, on);
+      setLine(EL['src_solar'], sp.x, sp.y, L.R_S, HX, HY, RH, c.solar, on);
     }
 
     // Battery → home (or home → battery)
     const bp = L.srcPos['bat'];
     if (bp && EL['src_bat']) {
       const on = this._batDis() || this._batCha();
-      setLine(EL['src_bat'], bp.x, bp.y, L.R_S, L.HX, L.HY, L.R_H, c.battery, on);
+      setLine(EL['src_bat'], bp.x, bp.y, L.R_S, HX, HY, RH, c.battery, on);
+    }
+
+    // Move home node group to new vertical center
+    if (this._E.homeG) {
+      const dy = HY - L.HY;
+      this._E.homeG.setAttribute('transform', dy !== 0 ? `translate(0,${dy})` : '');
     }
 
     // Bus vertical en horizontal: dynamisch herpositioneren gecentreerd op huis
     const activeIdxs = cfg.entities.map((e, i) => i).filter(i => this._exOn(i));
     const anyOn = activeIdxs.length > 0;
 
-    // Herbereken Y-posities gecentreerd rond HY
+    // Herbereken Y-posities gecentreerd rond nieuw HY
     const activeConYs = {};
     if (anyOn) {
       const n = activeIdxs.length;
-      const startY = L.HY - ((n - 1) * L.C_GAP) / 2;
+      const startY = HY - ((n - 1) * L.C_GAP) / 2;
       activeIdxs.forEach((origIdx, pos) => {
         activeConYs[origIdx] = startY + pos * L.C_GAP;
       });
@@ -541,8 +563,8 @@ class PowerFlowCard extends HTMLElement {
     const hbEl = EL['home_bus'];
     if (hbEl) hbEl.setAttribute('display', anyOn ? '' : 'none');
     if (anyOn && hbEl) {
-      hbEl.setAttribute('x1', L.HX + L.R_H); hbEl.setAttribute('y1', L.HY);
-      hbEl.setAttribute('x2', L.BX);          hbEl.setAttribute('y2', L.HY);
+      hbEl.setAttribute('x1', HX + RH); hbEl.setAttribute('y1', HY);
+      hbEl.setAttribute('x2', L.BX);    hbEl.setAttribute('y2', HY);
       hbEl.setAttribute('stroke', '#22c55e'); hbEl.setAttribute('stroke-width', '2');
       hbEl.setAttribute('stroke-dasharray', 'none'); hbEl.setAttribute('opacity', '0.6');
     }
@@ -567,7 +589,6 @@ class PowerFlowCard extends HTMLElement {
       const cg = this._E.CG[i];
       if (cg) cg.setAttribute('display', on ? '' : 'none');
       if (on && cg && activeConYs[i] !== undefined) {
-        // Verplaats de hele node groep naar nieuwe Y positie
         const oldY = L.conYs[i];
         const newY = activeConYs[i];
         const dy   = newY - oldY;
@@ -627,7 +648,11 @@ class PowerFlowCard extends HTMLElement {
           return { x: ax+dx/d*R, y: ay+dy/d*R };
         };
 
-        const HX = L.HX, HY = L.HY, RH = L.R_H, RS = L.R_S, RC = L.R_C;
+        // Recalculate dynamic HY same as _updateLines
+        const activeCount2 = cfg.entities.filter((e, i) => this._exOn(i)).length;
+        const conBlockH2   = activeCount2 > 0 ? (activeCount2 - 1) * L.C_GAP + L.R_C * 2 + L.LBL_H : 0;
+        const contentH2    = Math.max(L.srcBlockH, L.R_H * 2 + L.LBL_H, conBlockH2);
+        const HX = L.HX, HY = L.PAD_TOP + contentH2 / 2, RH = L.R_H, RS = L.R_S, RC = L.R_C;
         const sp = L.srcPos['solar'];
         const gp = L.srcPos['grid'];
         const bp = L.srcPos['bat'];
@@ -692,8 +717,7 @@ class PowerFlowCard extends HTMLElement {
               { x: L.CX - RC, y: cy },
             ], e.color, 4);
           });
-        }
-      }
+        }      }
 
       // Move dots
       for (let i = this._pts.length - 1; i >= 0; i--) {
