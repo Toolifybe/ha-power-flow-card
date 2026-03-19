@@ -1,5 +1,5 @@
 /**
- * Power Flow Card v3.0.3
+ * Power Flow Card v3.0.4
  *
  * Layout:
  *   Links kolom (boven→onder): Net, Zonne-energie, Batterij
@@ -272,6 +272,15 @@ class PowerFlowCard extends HTMLElement {
       this._E.L['src_' + s.key] = el;
     });
 
+    // Solar → battery dashed line (always present when both configured)
+    const hasSolarBat = !!(cfg.solar_entity && (cfg.battery_entity || cfg.battery_entities));
+    if (hasSolarBat) {
+      const el = pfcEl('line');
+      el.setAttribute('stroke-linecap', 'round');
+      linesG.appendChild(el);
+      this._E.L['solar_bat'] = el;
+    }
+
     // Home → bus (horizontal connector)
     if (ents.length > 0) {
       const el = pfcEl('line');
@@ -285,11 +294,13 @@ class PowerFlowCard extends HTMLElement {
       linesG.appendChild(bv);
       this._E.L['bus_v'] = bv;
 
-      // Bus → each consumer
+      // Bus → each consumer: use <path> for rounded corners
       ents.forEach((e, i) => {
-        const el = pfcEl('line');
+        const el = pfcEl('path');
+        el.setAttribute('fill', 'none');
         el.setAttribute('stroke', e.color);
         el.setAttribute('stroke-linecap', 'round');
+        el.setAttribute('stroke-linejoin', 'round');
         linesG.appendChild(el);
         this._E.L['con_' + i] = el;
       });
@@ -547,6 +558,12 @@ class PowerFlowCard extends HTMLElement {
       setLine(EL['src_bat'], bp.x, bp.y, L.R_S, HX, HY, RH, c.battery, on);
     }
 
+    // Solar → battery dashed line (always shown, active when charging from solar)
+    if (sp && bp && EL['solar_bat']) {
+      const on = this._solar() && this._batCha();
+      setLine(EL['solar_bat'], sp.x, sp.y, L.R_S, bp.x, bp.y, L.R_S, c.solar, on);
+    }
+
     // Move home node group to new vertical center
     if (this._E.homeG) {
       const dy = HY - L.HY;
@@ -604,9 +621,22 @@ class PowerFlowCard extends HTMLElement {
       if (el) {
         el.setAttribute('display', on ? '' : 'none');
         if (on && activeConYs[i] !== undefined) {
-          const cy = activeConYs[i];
-          el.setAttribute('x1', L.BX); el.setAttribute('y1', cy);
-          el.setAttribute('x2', L.CX - L.R_C); el.setAttribute('y2', cy);
+          const cy  = activeConYs[i];
+          const r   = 10; // corner radius
+          // Rounded L-path: from bus X at home Y, down to consumer Y, then right to consumer
+          // If cy === HY: straight horizontal line, no bend needed
+          let d;
+          if (Math.abs(cy - HY) < 2) {
+            // Same height as home — straight line
+            d = `M${L.BX},${HY} L${L.CX - L.R_C},${cy}`;
+          } else if (cy < HY) {
+            // Consumer is above home center — bend goes up then right
+            d = `M${L.BX},${HY} L${L.BX},${cy + r} Q${L.BX},${cy} ${L.BX + r},${cy} L${L.CX - L.R_C},${cy}`;
+          } else {
+            // Consumer is below home center — bend goes down then right
+            d = `M${L.BX},${HY} L${L.BX},${cy - r} Q${L.BX},${cy} ${L.BX + r},${cy} L${L.CX - L.R_C},${cy}`;
+          }
+          el.setAttribute('d', d);
           el.setAttribute('stroke-width', '2.5');
           el.setAttribute('stroke-dasharray', 'none');
           el.setAttribute('opacity', '0.8');
@@ -706,7 +736,7 @@ class PowerFlowCard extends HTMLElement {
           spawn([p1, p2], c.battery);
         }
 
-        // ── Huis → Verbruikers (via bus, met dynamische Y posities)
+        // ── Huis → Verbruikers (via bus, afgeronde hoeken)
         const activeIdxs2 = cfg.entities.map((e, i) => i).filter(i => this._exOn(i));
         if (activeIdxs2.length > 0) {
           const n2 = activeIdxs2.length;
@@ -714,12 +744,24 @@ class PowerFlowCard extends HTMLElement {
           activeIdxs2.forEach((origIdx, pos) => {
             const cy = startY2 + pos * L.C_GAP;
             const e  = cfg.entities[origIdx];
-            spawn([
-              { x: HX + RH,   y: HY },
-              { x: L.BX,      y: HY },
-              { x: L.BX,      y: cy },
-              { x: L.CX - RC, y: cy },
-            ], e.color, 4);
+            const r  = 10;
+            if (Math.abs(cy - HY) < 2) {
+              // Straight line
+              spawn([
+                { x: HX + RH,   y: HY },
+                { x: L.CX - RC, y: cy },
+              ], e.color, 4);
+            } else {
+              // Rounded bend — approximate with extra waypoints
+              const bendY = cy < HY ? cy + r : cy - r;
+              spawn([
+                { x: HX + RH,   y: HY },
+                { x: L.BX,      y: HY },
+                { x: L.BX,      y: bendY },
+                { x: L.BX + r,  y: cy },
+                { x: L.CX - RC, y: cy },
+              ], e.color, 4);
+            }
           });
         }      }
 

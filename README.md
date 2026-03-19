@@ -1,6 +1,6 @@
 # Power Flow Card
 
-[![Version](https://img.shields.io/badge/version-3.0.3-blue.svg)](https://github.com/your-repo/ha-power-flow-card)
+[![Version](https://img.shields.io/badge/version-3.0.4-blue.svg)](https://github.com/your-repo/ha-power-flow-card)
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
 
 Animated power flow card for Home Assistant. Visualises real-time energy flows between solar panels, grid, battery, home and individual consumers.
@@ -236,6 +236,11 @@ Browse more icons at [materialdesignicons.com](https://materialdesignicons.com)
 ---
 
 ## Changelog
+
+### v3.0.4
+- Fixed: dashed line between solar and battery node is now always visible when both are configured
+- Improved: consumer flow paths now use rounded corners instead of sharp right angles
+- Improved: animation dots follow the rounded corner paths
 
 ### v3.0.3
 - Fixed: source nodes (grid, solar, battery) and home node no longer shift position when consumers appear or disappear
