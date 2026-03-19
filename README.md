@@ -1,6 +1,6 @@
 # Power Flow Card
 
-[![Version](https://img.shields.io/badge/version-3.0.4-blue.svg)](https://github.com/your-repo/ha-power-flow-card)
+[![Version](https://img.shields.io/badge/version-3.0.4-blue.svg)](https://github.com/Toolifybe/ha-power-flow-card)
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
 
 Animated power flow card for Home Assistant. Visualises real-time energy flows between solar panels, grid, battery, home and individual consumers.
@@ -18,12 +18,24 @@ Animated power flow card for Home Assistant. Visualises real-time energy flows b
 
 ## Installation
 
-1. Copy `power-flow-card.js` to `/config/www/community/ha-power-flow-card/`
-2. Delete any existing `.gz` file in that same folder
-3. Add the resource in Home Assistant:
-   - Go to **Settings → Dashboards → Resources**
-   - Add: `/local/community/ha-power-flow-card/power-flow-card.js` (type: JavaScript module)
-4. Hard-refresh your browser (Ctrl+Shift+R)
+### Via HACS (recommended)
+
+1. Open HACS in Home Assistant
+2. Go to **Frontend**
+3. Click the **⋮** menu → **Custom repositories**
+4. Add `https://github.com/Toolifybe/ha-power-flow-card` with category **Lovelace**
+5. Search for **Power Flow Card** and click **Download**
+6. Hard-refresh your browser (Ctrl+Shift+R)
+
+HACS handles copying the file, registering the resource and future updates automatically.
+
+### Manual installation
+
+1. Download `power-flow-card.js` from the [latest release](https://github.com/Toolifybe/ha-power-flow-card/releases/latest)
+2. Copy it to `/config/www/community/ha-power-flow-card/`
+3. Delete any existing `.gz` file in that same folder
+4. Go to **Settings → Dashboards → Resources** and add `/local/community/ha-power-flow-card/power-flow-card.js` (type: JavaScript module)
+5. Hard-refresh your browser (Ctrl+Shift+R)
 
 ---
 
@@ -222,7 +234,7 @@ Browse more icons at [materialdesignicons.com](https://materialdesignicons.com)
 ## Troubleshooting
 
 **Card does not load / `customElements` error**
-→ Delete the `.gz` file next to the `.js` in `/config/www/community/ha-power-flow-card/` and hard-refresh.
+→ Delete the `.gz` file next to the `.js` in `/config/www/community/ha-power-flow-card/` and hard-refresh. For HACS installs, try re-downloading via HACS.
 
 **Values are incorrect**
 → Check the raw sensor values in Developer Tools → States. Verify that `grid_inverted` and `battery_inverted` match your hardware's sign convention.
