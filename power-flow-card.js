@@ -1,5 +1,5 @@
 /**
- * Power Flow Card v3.0.4
+ * Power Flow Card v3.0.5
  *
  * Layout:
  *   Links kolom (boven→onder): Net, Zonne-energie, Batterij
@@ -511,10 +511,13 @@ class PowerFlowCard extends HTMLElement {
 
     if (this._E.svg) {
       const conBlockH = activeCount > 0 ? (activeCount - 1) * L.C_GAP + L.R_C * 2 + L.LBL_H : 0;
-      // ViewBox height = enough to show sources AND active consumers, starting from top
+      // Bottom of last consumer = HY + half of conBlockH (consumers centered on HY)
+      const bottomOfConsumers = activeCount > 0
+        ? HY + (activeCount - 1) * L.C_GAP / 2 + L.R_C + L.LBL_H + L.PAD_TOP
+        : HY + L.R_H + L.PAD_TOP;
       const neededH = Math.max(
-        L.srcBlockH + L.PAD_TOP * 2 + 24,          // source column height
-        HY + conBlockH / 2 + L.R_C + L.PAD_TOP     // consumers below home center
+        L.srcBlockH + L.PAD_TOP * 2 + 24,  // source column needs enough room
+        bottomOfConsumers                    // consumers must all fit
       );
       this._E.svg.setAttribute('viewBox', `0 0 ${L.W} ${neededH}`);
     }
