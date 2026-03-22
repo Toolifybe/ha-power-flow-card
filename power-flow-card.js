@@ -510,16 +510,22 @@ class PowerFlowCard extends HTMLElement {
     const HX = L.HX, HY = L.HY, RH = L.R_H;  // FIXED positions
 
     if (this._E.svg) {
-      const conBlockH = activeCount > 0 ? (activeCount - 1) * L.C_GAP + L.R_C * 2 + L.LBL_H : 0;
-      // Bottom of last consumer = HY + half of conBlockH (consumers centered on HY)
-      const bottomOfConsumers = activeCount > 0
-        ? HY + (activeCount - 1) * L.C_GAP / 2 + L.R_C + L.LBL_H + L.PAD_TOP
-        : HY + L.R_H + L.PAD_TOP;
+      // Consumers are centered on HY — first one can go ABOVE HY
+      const firstConY = activeCount > 0 ? HY - (activeCount - 1) * L.C_GAP / 2 : HY;
+      const lastConY  = activeCount > 0 ? HY + (activeCount - 1) * L.C_GAP / 2 : HY;
+      // Top of first consumer = firstConY - R_C - LBL_H (label above circle)
+      const topNeeded    = firstConY - L.R_C - L.LBL_H - 10;
+      // Bottom of last consumer = lastConY + R_C + padding
+      const bottomNeeded = lastConY + L.R_C + 28;
+      // If top is negative we need to shift everything down — use an offset
+      const offset = topNeeded < L.PAD_TOP ? L.PAD_TOP - topNeeded : 0;
       const neededH = Math.max(
-        L.srcBlockH + L.PAD_TOP * 2 + 24,  // source column needs enough room
-        bottomOfConsumers                    // consumers must all fit
+        L.srcBlockH + L.PAD_TOP * 2 + 24,
+        bottomNeeded + offset
       );
       this._E.svg.setAttribute('viewBox', `0 0 ${L.W} ${neededH}`);
+      // Shift consumer column down if first consumer would clip the top
+      this._consumerOffset = offset;
     }
 
     // Home node stays at fixed HY — no transform needed
@@ -576,12 +582,13 @@ class PowerFlowCard extends HTMLElement {
     // Bus vertical en horizontal: dynamisch herpositioneren gecentreerd op huis
     const activeIdxs = cfg.entities.map((e, i) => i).filter(i => this._exOn(i));
     const anyOn = activeIdxs.length > 0;
+    const offset = this._consumerOffset || 0;
 
-    // Herbereken Y-posities gecentreerd rond nieuw HY
+    // Herbereken Y-posities gecentreerd rond HY, met offset indien nodig
     const activeConYs = {};
     if (anyOn) {
       const n = activeIdxs.length;
-      const startY = HY - ((n - 1) * L.C_GAP) / 2;
+      const startY = HY - ((n - 1) * L.C_GAP) / 2 + offset;
       activeIdxs.forEach((origIdx, pos) => {
         activeConYs[origIdx] = startY + pos * L.C_GAP;
       });
@@ -728,7 +735,8 @@ class PowerFlowCard extends HTMLElement {
         const activeIdxs2 = cfg.entities.map((e, i) => i).filter(i => this._exOn(i));
         if (activeIdxs2.length > 0) {
           const n2 = activeIdxs2.length;
-          const startY2 = HY - ((n2 - 1) * L.C_GAP) / 2;
+          const offset2 = this._consumerOffset || 0;
+          const startY2 = HY - ((n2 - 1) * L.C_GAP) / 2 + offset2;
           activeIdxs2.forEach((origIdx, pos) => {
             const cy = startY2 + pos * L.C_GAP;
             const e  = cfg.entities[origIdx];
