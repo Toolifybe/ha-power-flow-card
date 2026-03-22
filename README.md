@@ -1,6 +1,6 @@
 # Power Flow Card
 
-[![Version](https://img.shields.io/badge/version-3.7.0-blue.svg)](https://github.com/Toolifybe/ha-power-flow-card)
+[![Version](https://img.shields.io/badge/version-3.1.0-blue.svg)](https://github.com/Toolifybe/ha-power-flow-card)
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
 
 Animated power flow card for Home Assistant. Visualises real-time energy flows between solar panels, grid, battery, home and individual consumers.
@@ -117,31 +117,31 @@ labels:
 # Consumers at 0 W are hidden automatically and reappear when active.
 # Active consumers are dynamically centred alongside the home node.
 entities:
-  - entity: sensor.sonoff_100255c4fd_power
+  - entity: sensor.sonoff_xxx_power
     name: PC
     icon: mdi:desktop-classic
     color: '#22c55e'
 
-  - entity: sensor.sonoff_100255d61c_power
+  - entity: sensor.sonoff_xxx_power
     name: TV
     icon: mdi:television
     color: '#a855f7'
 
-  - entity: sensor.sonoff_100255c06d_power
+  - entity: sensor.sonoff_xxx_power
     name: Dishwasher
     icon: mdi:dishwasher
     color: '#06b6d4'
 
-  - entity: sensor.sonoff_10023c6126_power
+  - entity: sensor.sonoff_xxx_power
     name: Washing machine
     icon: mdi:washing-machine
     color: '#f59e0b'
 
-  - entity: sensor.sonoff_10023c5a80_power
+  - entity: sensor.sonoff_xxx_power
     name: Dryer
     color: '#84cc16'
 
-  - entity: sensor.sonoff_100187402c_power
+  - entity: sensor.sonoff_xxx_power
     name: Boiler
     icon: mdi:water-heater
     color: '#22c55e'
@@ -249,7 +249,7 @@ Browse more icons at [materialdesignicons.com](https://materialdesignicons.com)
 
 ## Changelog
 
-### v3.7.0
+### v3.1.0
 - New: 3D sphere look for all nodes — radial gradient fill, drop shadow and glare highlight
 - Icons and values now render in white for better contrast on the filled spheres
 - Node colours remain fully configurable via `colors:` in YAML

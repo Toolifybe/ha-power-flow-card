@@ -1,5 +1,5 @@
 /**
- * Power Flow Card v3.7.0
+ * Power Flow Card v3.1.0
  *
  * Layout:
  *   Links kolom (boven→onder): Net, Zonne-energie, Batterij
