@@ -1,5 +1,5 @@
 /**
- * Power Flow Card v3.0.5
+ * Power Flow Card v3.0.6
  *
  * Layout:
  *   Links kolom (boven→onder): Net, Zonne-energie, Batterij
@@ -73,6 +73,7 @@ class PowerFlowCard extends HTMLElement {
     this._tick = 0;
     this._raf  = null;
     this._vis  = null;
+    this._linesReady = false;  // true after first _updateLines completes
   }
 
   static getConfigElement() { return document.createElement('power-flow-card-editor'); }
@@ -171,7 +172,7 @@ class PowerFlowCard extends HTMLElement {
   _buildDOM() {
     if (this._raf) { cancelAnimationFrame(this._raf); this._raf = null; }
     if (this._vis) { document.removeEventListener('visibilitychange', this._vis); this._vis = null; }
-    this._pts = []; this._tick = 0;
+    this._pts = []; this._tick = 0; this._linesReady = false;
 
     const cfg  = this._cfg;
     const c    = cfg.colors;
@@ -638,6 +639,19 @@ class PowerFlowCard extends HTMLElement {
         }
       }
     });
+
+    // Lines are now correct — flush any stale particles and allow spawning
+    if (!this._linesReady) {
+      this._pts.forEach(p => p.dot && p.dot.remove());
+      this._pts = [];
+    }
+    // Also flush if active consumer count changed (layout shifted)
+    if (this._lastActiveCount !== activeCount) {
+      this._pts.forEach(p => p.dot && p.dot.remove());
+      this._pts = [];
+      this._lastActiveCount = activeCount;
+    }
+    this._linesReady = true;
   }
 
   // ── Animation ──────────────────────────────────────────────────────────────
@@ -657,7 +671,7 @@ class PowerFlowCard extends HTMLElement {
     const loop = () => {
       if (document.hidden) { this._raf = null; return; }
 
-      if (this._tick % 18 === 0 && this._D && this._L) {
+      if (this._tick % 18 === 0 && this._D && this._L && this._linesReady) {
         const L   = this._L;
         const cfg = this._cfg;
         const c   = L.c;
