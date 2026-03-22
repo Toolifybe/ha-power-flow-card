@@ -1,5 +1,5 @@
 /**
- * Power Flow Card v3.0.6
+ * Power Flow Card v3.7.0
  *
  * Layout:
  *   Links kolom (boven→onder): Net, Zonne-energie, Batterij
@@ -307,6 +307,51 @@ class PowerFlowCard extends HTMLElement {
       });
     }
 
+    // ── SVG defs: radial gradients for 3D look ───────────────────────────────
+    const svgEl2 = this.shadowRoot.getElementById('svg');
+    const defs = pfcEl('defs');
+
+    const makeGrad = (id, col) => {
+      // Parse hex to lighter tint for highlight stop
+      const r = parseInt(col.slice(1,3),16), g2 = parseInt(col.slice(3,5),16), b = parseInt(col.slice(5,7),16);
+      const light = `rgb(${Math.min(255,r+90)},${Math.min(255,g2+90)},${Math.min(255,b+90)})`;
+      const rg = pfcEl('radialGradient');
+      rg.setAttribute('id', id);
+      rg.setAttribute('cx', '35%'); rg.setAttribute('cy', '30%'); rg.setAttribute('r', '65%');
+      const s1 = pfcEl('stop'); s1.setAttribute('offset', '0%'); s1.setAttribute('stop-color', light);
+      const s2 = pfcEl('stop'); s2.setAttribute('offset', '100%'); s2.setAttribute('stop-color', col);
+      rg.appendChild(s1); rg.appendChild(s2); defs.appendChild(rg);
+    };
+
+    makeGrad('pfc_g_solar',   c.solar);
+    makeGrad('pfc_g_grid',    c.grid);
+    makeGrad('pfc_g_battery', c.battery);
+    makeGrad('pfc_g_home',    c.home);
+    ents.forEach((e, i) => makeGrad(`pfc_g_ex${i}`, e.color));
+    svgEl2.insertBefore(defs, svgEl2.firstChild);
+
+    // Helper: draw a 3D sphere node
+    const draw3DSphere = (g, cx, cy, r, gradId, col) => {
+      // Shadow ellipse below
+      const shadow = pfcEl('ellipse');
+      shadow.setAttribute('cx', cx); shadow.setAttribute('cy', cy + r + 4);
+      shadow.setAttribute('rx', r * 0.85); shadow.setAttribute('ry', r * 0.22);
+      shadow.setAttribute('fill', col); shadow.setAttribute('opacity', '0.18');
+      g.appendChild(shadow);
+      // Filled sphere
+      const circ = pfcEl('circle');
+      circ.setAttribute('cx', cx); circ.setAttribute('cy', cy); circ.setAttribute('r', r);
+      circ.setAttribute('fill', `url(#${gradId})`);
+      g.appendChild(circ);
+      // Highlight glare top-left
+      const hl = pfcEl('ellipse');
+      hl.setAttribute('cx', cx - r * 0.25); hl.setAttribute('cy', cy - r * 0.28);
+      hl.setAttribute('rx', r * 0.32); hl.setAttribute('ry', r * 0.18);
+      hl.setAttribute('fill', 'white'); hl.setAttribute('opacity', '0.28');
+      hl.setAttribute('transform', `rotate(-25,${cx - r*0.25},${cy - r*0.28})`);
+      g.appendChild(hl);
+    };
+
     // ── Source nodes ──────────────────────────────────────────────────────────
 
     srcList.forEach(s => {
@@ -314,7 +359,7 @@ class PowerFlowCard extends HTMLElement {
       const isBat = s.key === 'bat';
       const g     = pfcEl('g');
 
-      // Label above circle
+      // Label above
       const lbl = pfcEl('text');
       lbl.setAttribute('x', pos.x); lbl.setAttribute('y', pos.y - R_S - 6);
       lbl.setAttribute('text-anchor', 'middle');
@@ -322,45 +367,41 @@ class PowerFlowCard extends HTMLElement {
       lbl.setAttribute('fill', 'var(--secondary-text-color, #777)');
       lbl.textContent = s.lbl; g.appendChild(lbl);
 
-      // Circle
-      const circ = pfcEl('circle');
-      circ.setAttribute('cx', pos.x); circ.setAttribute('cy', pos.y); circ.setAttribute('r', R_S);
-      circ.setAttribute('fill', 'none'); circ.setAttribute('stroke', s.col); circ.setAttribute('stroke-width', '2.5');
-      g.appendChild(circ);
+      // 3D sphere
+      draw3DSphere(g, pos.x, pos.y, R_S, `pfc_g_${s.key === 'bat' ? 'battery' : s.key}`, s.col);
 
       // Icon
       const iconY = isBat ? pos.y - R_S + 10 : pos.y - 8;
       const ig = pfcEl('g');
       ig.setAttribute('transform', `translate(${pos.x - 9},${iconY - 9}) scale(0.75)`);
-      const ip = pfcEl('path'); ip.setAttribute('d', pfcPath(s.icon)); ip.setAttribute('fill', s.col);
+      const ip = pfcEl('path'); ip.setAttribute('d', pfcPath(s.icon)); ip.setAttribute('fill', 'white'); ip.setAttribute('opacity', '0.9');
       ig.appendChild(ip); g.appendChild(ig);
 
-      // Battery: SOC text + watt text
+      // Battery: SOC + watt
       if (isBat) {
         const socT = pfcEl('text');
         socT.setAttribute('x', pos.x); socT.setAttribute('y', pos.y + 4);
         socT.setAttribute('text-anchor', 'middle');
         socT.setAttribute('font-size', '12'); socT.setAttribute('font-weight', '700');
-        socT.setAttribute('fill', s.col); socT.textContent = '--%';
+        socT.setAttribute('fill', 'white'); socT.textContent = '--%';
         g.appendChild(socT); this._E.V['bat-soc'] = socT;
 
         const watT = pfcEl('text');
         watT.setAttribute('x', pos.x); watT.setAttribute('y', pos.y + 18);
         watT.setAttribute('text-anchor', 'middle');
         watT.setAttribute('font-size', '12'); watT.setAttribute('font-weight', '700');
-        watT.setAttribute('fill', s.col); watT.textContent = '--';
+        watT.setAttribute('fill', 'white'); watT.textContent = '--';
         g.appendChild(watT); this._E.V['bat'] = watT;
       } else {
-        // Single value text
         const valT = pfcEl('text');
         valT.setAttribute('x', pos.x); valT.setAttribute('y', pos.y + 14);
         valT.setAttribute('text-anchor', 'middle');
         valT.setAttribute('font-size', '12'); valT.setAttribute('font-weight', '700');
-        valT.setAttribute('fill', s.col); valT.textContent = '--';
+        valT.setAttribute('fill', 'white'); valT.textContent = '--';
         g.appendChild(valT); this._E.V[s.key] = valT;
       }
 
-      // Grid: import/export sub-labels below circle
+      // Grid sub-labels
       if (s.key === 'grid') {
         const gi = pfcEl('text');
         gi.setAttribute('x', pos.x); gi.setAttribute('y', pos.y + R_S + 14);
@@ -388,21 +429,18 @@ class PowerFlowCard extends HTMLElement {
       lbl.setAttribute('fill', 'var(--secondary-text-color, #777)');
       lbl.textContent = this._cfg.labels.home; g.appendChild(lbl);
 
-      const circ = pfcEl('circle');
-      circ.setAttribute('cx', HX); circ.setAttribute('cy', midY); circ.setAttribute('r', R_H);
-      circ.setAttribute('fill', 'none'); circ.setAttribute('stroke', c.home); circ.setAttribute('stroke-width', '3');
-      g.appendChild(circ);
+      draw3DSphere(g, HX, midY, R_H, 'pfc_g_home', c.home);
 
       const ig = pfcEl('g');
       ig.setAttribute('transform', `translate(${HX - 11},${midY - 11 - 9}) scale(0.916)`);
-      const ip = pfcEl('path'); ip.setAttribute('d', pfcPath('mdi:home')); ip.setAttribute('fill', c.home);
+      const ip = pfcEl('path'); ip.setAttribute('d', pfcPath('mdi:home')); ip.setAttribute('fill', 'white'); ip.setAttribute('opacity', '0.9');
       ig.appendChild(ip); g.appendChild(ig);
 
       const valT = pfcEl('text');
       valT.setAttribute('x', HX); valT.setAttribute('y', midY + 20);
       valT.setAttribute('text-anchor', 'middle');
       valT.setAttribute('font-size', '14'); valT.setAttribute('font-weight', '700');
-      valT.setAttribute('fill', c.home); valT.textContent = '--';
+      valT.setAttribute('fill', 'white'); valT.textContent = '--';
       g.appendChild(valT); this._E.V['home'] = valT;
       this._E.homeG = g;
       nodesG.appendChild(g);
@@ -420,15 +458,12 @@ class PowerFlowCard extends HTMLElement {
       lbl.setAttribute('fill', 'var(--secondary-text-color, #777)');
       lbl.textContent = e.name; g.appendChild(lbl);
 
-      const circ = pfcEl('circle');
-      circ.setAttribute('cx', CX); circ.setAttribute('cy', cy); circ.setAttribute('r', R_C);
-      circ.setAttribute('fill', 'none'); circ.setAttribute('stroke', e.color); circ.setAttribute('stroke-width', '2.5');
-      g.appendChild(circ);
+      draw3DSphere(g, CX, cy, R_C, `pfc_g_ex${i}`, e.color);
 
       if (e.icon && e.icon !== 'default') {
         const ig = pfcEl('g');
         ig.setAttribute('transform', `translate(${CX - 8},${cy - 8 - 4}) scale(0.666)`);
-        const ip = pfcEl('path'); ip.setAttribute('d', pfcPath(e.icon)); ip.setAttribute('fill', e.color);
+        const ip = pfcEl('path'); ip.setAttribute('d', pfcPath(e.icon)); ip.setAttribute('fill', 'white'); ip.setAttribute('opacity', '0.9');
         ig.appendChild(ip); g.appendChild(ig);
       }
 
@@ -437,7 +472,7 @@ class PowerFlowCard extends HTMLElement {
       valT.setAttribute('y', (e.icon && e.icon !== 'default') ? cy + 12 : cy + 5);
       valT.setAttribute('text-anchor', 'middle');
       valT.setAttribute('font-size', '12'); valT.setAttribute('font-weight', '700');
-      valT.setAttribute('fill', e.color); valT.textContent = '--';
+      valT.setAttribute('fill', 'white'); valT.textContent = '--';
       g.appendChild(valT); this._E.V['ex' + i] = valT;
 
       this._E.CG[i] = g;

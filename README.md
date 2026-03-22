@@ -1,6 +1,6 @@
 # Power Flow Card
 
-[![Version](https://img.shields.io/badge/version-3.0.6-blue.svg)](https://github.com/Toolifybe/ha-power-flow-card)
+[![Version](https://img.shields.io/badge/version-3.7.0-blue.svg)](https://github.com/Toolifybe/ha-power-flow-card)
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
 
 Animated power flow card for Home Assistant. Visualises real-time energy flows between solar panels, grid, battery, home and individual consumers.
@@ -248,6 +248,11 @@ Browse more icons at [materialdesignicons.com](https://materialdesignicons.com)
 ---
 
 ## Changelog
+
+### v3.7.0
+- New: 3D sphere look for all nodes — radial gradient fill, drop shadow and glare highlight
+- Icons and values now render in white for better contrast on the filled spheres
+- Node colours remain fully configurable via `colors:` in YAML
 
 ### v3.0.6
 - Fixed: animation dots no longer appear in wrong positions on initial load
