@@ -1,6 +1,6 @@
 # Power Flow Card
 
-[![Version](https://img.shields.io/badge/version-3.2.0-blue.svg)](https://github.com/Toolifybe/ha-power-flow-card)
+[![Version](https://img.shields.io/badge/version-4.0.0-blue.svg)](https://github.com/Toolifybe/ha-power-flow-card)
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
 
 Animated power flow card for Home Assistant. Visualises real-time energy flows between solar panels, grid, battery, home and individual consumers.
@@ -11,10 +11,12 @@ Animated power flow card for Home Assistant. Visualises real-time energy flows b
 - Flows are calculated from the energy balance (solar, grid, battery), home consumption is calculated when no `home_entity` is set
 - Any MDI icon via Home Assistant's own icon set
 - Sensors in W, kW or MW (power) and Wh, kWh or MWh (energy) are converted automatically
+- Clean, flat look that follows your Home Assistant theme (light and dark)
+- Header with a live summary (e.g. "Battery discharging · 27 W to the grid") and a grid status pill
+- Fixed card height — the dashboard no longer shifts when consumers switch on or off
 - Consumers with 0 W are automatically hidden and re-appear when active
-- Active consumers dynamically re-centre alongside the home node
 - Debounce protection: prevents consumers from flickering during brief sensor glitches
-- Fully configurable colours, labels and node names via YAML
+- Configurable colours, labels, title and icon via YAML
 
 ---
 
@@ -58,7 +60,8 @@ Only set `home_entity` if you have a sensor that measures exactly that.
 
 ```yaml
 type: custom:power-flow-card
-title: Energy Flow
+title: Energy Flow            # default: Energiestroom; use false to hide the header
+icon: mdi:lightning-bolt      # header icon
 
 # ── Sources ────────────────────────────────────────────────────────────────────
 solar_entity: sensor.envoy_current_power_production
@@ -108,17 +111,18 @@ debounce_seconds: 8
 min_power: 10
 
 # ── Colours ────────────────────────────────────────────────────────────────────
-# Colour of each node. Use #rgb or #rrggbb for the 3D highlight; other CSS colours work without it.
+# Any CSS colour, including theme variables such as var(--accent-color).
 colors:
-  solar:   '#f59e0b'    # yellow  (default)
-  grid:    '#6366f1'    # blue    (default)
-  battery: '#ec4899'    # pink    (default)
-  home:    '#f97316'    # orange  (default)
+  solar:     '#f59e0b'    # default
+  grid:      '#3b82f6'    # default
+  battery:   '#e5484d'    # default
+  home:      'var(--primary-text-color)'   # default
+  consumers: '#22a55a'    # default for all consumers
 
 # ── Labels ─────────────────────────────────────────────────────────────────────
 # Display name shown above each node circle.
 labels:
-  solar:   Solar         # default: Zonne-energie
+  solar:   Solar         # default: Zon
   grid:    Grid          # default: Net
   battery: Battery       # default: Batterij
   home:    Home          # default: Huis
@@ -126,35 +130,31 @@ labels:
 # ── Individual consumers ───────────────────────────────────────────────────────
 # Consumers at 0 W are hidden automatically and reappear when active.
 # Active consumers are dynamically centred alongside the home node.
+# Without icon: a plug icon is shown. Without color: colors.consumers is used.
 entities:
   - entity: sensor.sonoff_xxx_power
     name: PC
     icon: mdi:desktop-classic
-    color: '#22c55e'
 
   - entity: sensor.sonoff_xxx_power
     name: TV
     icon: mdi:television
-    color: '#a855f7'
 
   - entity: sensor.sonoff_xxx_power
     name: Dishwasher
     icon: mdi:dishwasher
-    color: '#06b6d4'
 
   - entity: sensor.sonoff_xxx_power
     name: Washing machine
     icon: mdi:washing-machine
-    color: '#f59e0b'
 
   - entity: sensor.sonoff_xxx_power
     name: Dryer
-    color: '#84cc16'
+    icon: mdi:tumble-dryer
 
   - entity: sensor.sonoff_xxx_power
     name: Boiler
     icon: mdi:water-heater
-    color: '#22c55e'
 ```
 
 ---
@@ -163,7 +163,8 @@ entities:
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `title` | string | — | Card title |
+| `title` | string / `false` | `Energiestroom` | Header title; `false` hides the header |
+| `icon` | string | `mdi:lightning-bolt` | Header icon |
 | `solar_entity` | entity | — | Solar power sensor (W) |
 | `grid_entity` | entity | — | Grid power sensor (W) |
 | `home_entity` | entity | calculated | Home consumption sensor (W). Leave out to calculate it |
@@ -176,19 +177,20 @@ entities:
 | `battery_inverted` | bool | `true` | Invert battery sensor polarity |
 | `debounce_seconds` | number | `8` | Seconds at 0 W before a consumer is hidden |
 | `min_power` | number | `10` | Flows below this value (W) are not animated |
-| `colors.solar` | colour | `#f59e0b` | Solar node colour |
-| `colors.grid` | colour | `#6366f1` | Grid node colour |
-| `colors.battery` | colour | `#ec4899` | Battery node colour |
-| `colors.home` | colour | `#f97316` | Home node colour |
-| `labels.solar` | string | `Zonne-energie` | Solar node display name |
+| `colors.solar` | colour | `#f59e0b` | Solar colour |
+| `colors.grid` | colour | `#3b82f6` | Grid colour (also the header icon) |
+| `colors.battery` | colour | `#e5484d` | Battery colour |
+| `colors.home` | colour | `var(--primary-text-color)` | Home colour |
+| `colors.consumers` | colour | `#22a55a` | Default colour for consumers |
+| `labels.solar` | string | `Zon` | Solar node display name |
 | `labels.grid` | string | `Net` | Grid node display name |
 | `labels.battery` | string | `Batterij` | Battery node display name |
 | `labels.home` | string | `Huis` | Home node display name |
 | `entities` | list | — | Individual consumer nodes |
 | `entities[].entity` | entity | — | Power sensor (W) |
 | `entities[].name` | string | entity id | Display name |
-| `entities[].icon` | string | — | MDI icon (e.g. `mdi:desktop-classic`) |
-| `entities[].color` | hex | auto | Node colour |
+| `entities[].icon` | string | `mdi:power-plug-outline` | MDI icon (e.g. `mdi:desktop-classic`) |
+| `entities[].color` | colour | `colors.consumers` | Consumer colour |
 
 ---
 
@@ -198,11 +200,12 @@ entities:
 |-----------|-----------|
 | Solar production | Yellow dots: solar → home (solar is used by the home first) |
 | Battery charging, solar left over | Yellow dots: solar → battery |
-| Battery charging from the grid | Pink dots: home → battery |
+| Battery charging from the grid | Red dots: home → battery |
 | Grid import | Blue dots: grid → home |
 | Grid export | Blue dots: home → grid |
-| Battery discharging | Pink dots: battery → home |
+| Battery discharging | Red dots: battery → home |
 | Consumer active | Green dots: home → consumer |
+| Source not active | Grey circle with a dashed line |
 | Consumer at 0 W | Consumer is hidden (with debounce) |
 
 ---
@@ -210,23 +213,26 @@ entities:
 ## Icons
 
 Every MDI icon that Home Assistant knows can be used, e.g. `mdi:desktop-classic`, `mdi:television`, `mdi:car-electric`, `mdi:heat-pump`, `mdi:washing-machine`, `mdi:water-heater`.
-Browse icons at [pictogrammers.com](https://pictogrammers.com/library/mdi/). Consumers without `icon:` show only their value.
+Browse icons at [pictogrammers.com](https://pictogrammers.com/library/mdi/). Consumers without `icon:` show a plug icon.
 
 ---
 
 ## Layout
 
 ```
-  [Grid]         │
-  [Solar]        │    [Home]  ────── [Consumer 1]
-  [Battery]      │            ────── [Consumer 2]
-                 │            ────── [Consumer 3]
+  ┌ ⚡ Energiestroom ─────────────────────── [Export] ┐
+  │ Battery discharging · 27 W to the grid            │
+  │                                                   │
+  │  (Grid)                       ┌[PC        80 W]   │
+  │  (Solar) ────── (Home) ───────┼[TV        46 W]   │
+  │  (Battery)                    └[Dryer     48 W]   │
+  └───────────────────────────────────────────────────┘
 ```
 
 - Sources are stacked in the left column: grid top, solar middle, battery bottom
-- Home sits in the centre
-- Consumers are on the right, dynamically centred on the home node's vertical position
-- When a consumer drops to 0 W it disappears; the remaining ones reposition automatically
+- Home sits in the centre, consumers are tiles on the right
+- The card height is fixed by the number of configured sources and consumers, so it never jumps
+- When a consumer drops to 0 W it disappears (after `debounce_seconds`); the remaining ones re-centre on the home node
 
 ---
 
@@ -241,12 +247,26 @@ Browse icons at [pictogrammers.com](https://pictogrammers.com/library/mdi/). Con
 **Consumer keeps flickering in and out**
 → Increase `debounce_seconds` (e.g. to `15` or `30`) to filter out noisy sensor readings.
 
-**Dashboard layout breaks**
-→ Make sure you are running v3.0.0 or later. Earlier versions contained a bug where the card rebuilt its DOM on every data update, which corrupted the HA grid layout.
+**Which version is loaded?**
+→ Open the browser console (F12): the card logs `POWER-FLOW-CARD v4.0.0`.
+
+**Colours look like the old version**
+→ Remove the `colors:` block from your YAML to use the new default palette.
 
 ---
 
 ## Changelog
+
+### v4.0.0
+- New look that matches standard Home Assistant cards: flat circles with a coloured ring, values in the theme text colour with a small grey unit, consumers as tiles
+- Uses `ha-card` and Home Assistant theme variables, so light and dark themes work automatically
+- New header with icon, title, live summary and an Import / Export / Neutraal pill (`title`, `icon`; `title: false` hides it)
+- Inactive sources turn grey with a dashed line; the battery icon follows the state of charge and shows charging
+- Fixed card height: no more empty space and no dashboard shifts when consumers switch on or off
+- Solar → battery is drawn as an arc beside the column, no longer through the text
+- Calmer animation: smaller dots, one shared flow from home to the consumer bus
+- New defaults: grid `#3b82f6`, battery `#e5484d`, home follows the text colour, all consumers `colors.consumers` (`#22a55a`), solar label `Zon`
+- Colours accept any CSS colour, including theme variables
 
 ### v3.2.0
 - Fixed: every return to the browser tab added an extra event listener, doubling each time and slowing the browser down over time
