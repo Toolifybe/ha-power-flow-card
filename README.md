@@ -1,6 +1,6 @@
 # Power Flow Card
 
-[![Version](https://img.shields.io/badge/version-3.1.0-blue.svg)](https://github.com/Toolifybe/ha-power-flow-card)
+[![Version](https://img.shields.io/badge/version-3.2.0-blue.svg)](https://github.com/Toolifybe/ha-power-flow-card)
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
 
 Animated power flow card for Home Assistant. Visualises real-time energy flows between solar panels, grid, battery, home and individual consumers.
@@ -8,7 +8,9 @@ Animated power flow card for Home Assistant. Visualises real-time energy flows b
 ## Features
 
 - Animated flow dots showing direction and source of energy
-- Smart flow logic: solar surplus automatically charges battery
+- Flows are calculated from the energy balance (solar, grid, battery), home consumption is calculated when no `home_entity` is set
+- Any MDI icon via Home Assistant's own icon set
+- Sensors in W, kW or MW (power) and Wh, kWh or MWh (energy) are converted automatically
 - Consumers with 0 W are automatically hidden and re-appear when active
 - Active consumers dynamically re-centre alongside the home node
 - Debounce protection: prevents consumers from flickering during brief sensor glitches
@@ -45,8 +47,10 @@ HACS handles copying the file, registering the resource and future updates autom
 type: custom:power-flow-card
 solar_entity: sensor.solar_power
 grid_entity: sensor.grid_power
-home_entity: sensor.home_power
 ```
+
+Home consumption is calculated as solar + grid import + battery discharge − export − battery charge.
+Only set `home_entity` if you have a sensor that measures exactly that.
 
 ---
 
@@ -59,7 +63,8 @@ title: Energy Flow
 # ── Sources ────────────────────────────────────────────────────────────────────
 solar_entity: sensor.envoy_current_power_production
 grid_entity: sensor.elektriciteit_meter_power
-home_entity: sensor.werkelijk_verbruik
+# Optional: without it, home consumption is calculated from the other sensors
+# home_entity: sensor.home_consumption
 
 # Single battery
 battery_entity: sensor.battery_power
@@ -97,8 +102,13 @@ battery_inverted: true
 # Default: 8. Set to 0 to hide immediately.
 debounce_seconds: 8
 
+# ── Minimum power ──────────────────────────────────────────────────────────────
+# Flows smaller than this (W) are not animated. Prevents the grid flow from
+# flipping direction around 0 W. Default: 10.
+min_power: 10
+
 # ── Colours ────────────────────────────────────────────────────────────────────
-# Border colour of each node circle. Accepts any hex colour.
+# Colour of each node. Use #rgb or #rrggbb for the 3D highlight; other CSS colours work without it.
 colors:
   solar:   '#f59e0b'    # yellow  (default)
   grid:    '#6366f1'    # blue    (default)
@@ -156,7 +166,7 @@ entities:
 | `title` | string | — | Card title |
 | `solar_entity` | entity | — | Solar power sensor (W) |
 | `grid_entity` | entity | — | Grid power sensor (W) |
-| `home_entity` | entity | — | Home consumption sensor (W) |
+| `home_entity` | entity | calculated | Home consumption sensor (W). Leave out to calculate it |
 | `battery_entity` | entity | — | Battery power sensor (W) |
 | `battery_entities` | list | — | List of battery sensors (summed) |
 | `battery_soc_entity` | entity | — | Battery state of charge sensor (%) |
@@ -165,10 +175,11 @@ entities:
 | `grid_inverted` | bool | `false` | Invert grid sensor polarity |
 | `battery_inverted` | bool | `true` | Invert battery sensor polarity |
 | `debounce_seconds` | number | `8` | Seconds at 0 W before a consumer is hidden |
-| `colors.solar` | hex | `#f59e0b` | Solar node border colour |
-| `colors.grid` | hex | `#6366f1` | Grid node border colour |
-| `colors.battery` | hex | `#ec4899` | Battery node border colour |
-| `colors.home` | hex | `#f97316` | Home node border colour |
+| `min_power` | number | `10` | Flows below this value (W) are not animated |
+| `colors.solar` | colour | `#f59e0b` | Solar node colour |
+| `colors.grid` | colour | `#6366f1` | Grid node colour |
+| `colors.battery` | colour | `#ec4899` | Battery node colour |
+| `colors.home` | colour | `#f97316` | Home node colour |
 | `labels.solar` | string | `Zonne-energie` | Solar node display name |
 | `labels.grid` | string | `Net` | Grid node display name |
 | `labels.battery` | string | `Batterij` | Battery node display name |
@@ -177,7 +188,7 @@ entities:
 | `entities[].entity` | entity | — | Power sensor (W) |
 | `entities[].name` | string | entity id | Display name |
 | `entities[].icon` | string | — | MDI icon (e.g. `mdi:desktop-classic`) |
-| `entities[].color` | hex | auto | Node border colour |
+| `entities[].color` | hex | auto | Node colour |
 
 ---
 
@@ -185,33 +196,21 @@ entities:
 
 | Situation | Animation |
 |-----------|-----------|
-| Solar output > home consumption | Yellow dots: solar → home **and** solar → battery |
-| Solar output ≤ home consumption | Yellow dots: solar → home only |
+| Solar production | Yellow dots: solar → home (solar is used by the home first) |
+| Battery charging, solar left over | Yellow dots: solar → battery |
+| Battery charging from the grid | Pink dots: home → battery |
 | Grid import | Blue dots: grid → home |
 | Grid export | Blue dots: home → grid |
-| Battery charging from solar | Yellow dots: solar → battery |
 | Battery discharging | Pink dots: battery → home |
 | Consumer active | Green dots: home → consumer |
 | Consumer at 0 W | Consumer is hidden (with debounce) |
 
 ---
 
-## Available MDI icons
+## Icons
 
-| Icon | YAML value |
-|------|------------|
-| Desktop monitor | `mdi:desktop-classic` |
-| Television | `mdi:television` |
-| Electric car | `mdi:car-electric` |
-| Heat pump | `mdi:heat-pump` |
-| Light bulb | `mdi:lightbulb` |
-| Lightning bolt | `mdi:lightning-bolt` |
-| Power socket | `mdi:power-socket-eu` |
-| Washing machine | `mdi:washing-machine` |
-| Dishwasher | `mdi:dishwasher` |
-| Water heater / boiler | `mdi:water-heater` |
-
-Browse more icons at [materialdesignicons.com](https://materialdesignicons.com)
+Every MDI icon that Home Assistant knows can be used, e.g. `mdi:desktop-classic`, `mdi:television`, `mdi:car-electric`, `mdi:heat-pump`, `mdi:washing-machine`, `mdi:water-heater`.
+Browse icons at [pictogrammers.com](https://pictogrammers.com/library/mdi/). Consumers without `icon:` show only their value.
 
 ---
 
@@ -248,6 +247,22 @@ Browse more icons at [materialdesignicons.com](https://materialdesignicons.com)
 ---
 
 ## Changelog
+
+### v3.2.0
+- Fixed: every return to the browser tab added an extra event listener, doubling each time and slowing the browser down over time
+- Fixed: `debounce_seconds` counted function calls instead of seconds, so consumers disappeared almost immediately; consumers also disappear now without a new sensor update
+- Fixed: consumer layout could be calculated for a different number of consumers than were drawn
+- Fixed: home consumption is calculated from the energy balance when no `home_entity` is set
+- Fixed: flows are calculated from the energy balance — battery charging is now always shown (from solar and/or grid), solar → home no longer animates when all solar goes elsewhere
+- Fixed: sensors in kW/MW and Wh/MWh are converted (stored energy in Wh gave a SOC stuck at 100%)
+- Fixed: icons now use Home Assistant's own icon set; several built-in icons were wrong and unknown icons showed an empty circle
+- Fixed: animation speed no longer depends on the screen refresh rate (120/144 Hz ran twice as fast)
+- Fixed: colours other than `#rrggbb` broke the 3D sphere
+- Fixed: unavailable sensors show `–` instead of `0 W`
+- Fixed: the card editor showed an empty editor; the YAML editor is used now
+- New: `min_power` (default 10 W) — no more flickering flow direction around 0 W
+- New: numbers follow the Home Assistant language (e.g. `1,35 kW`)
+- Improved: the card only recalculates when one of its own sensors changes
 
 ### v3.1.0
 - New: 3D sphere look for all nodes — radial gradient fill, drop shadow and glare highlight
