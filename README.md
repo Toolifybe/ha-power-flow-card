@@ -1,6 +1,6 @@
 # Power Flow Card
 
-[![Version](https://img.shields.io/badge/version-4.0.0-blue.svg)](https://github.com/Toolifybe/ha-power-flow-card)
+[![Version](https://img.shields.io/badge/version-4.0.1-blue.svg)](https://github.com/Toolifybe/ha-power-flow-card)
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
 
 Animated power flow card for Home Assistant. Visualises real-time energy flows between solar panels, grid, battery, home and individual consumers.
@@ -13,7 +13,7 @@ Animated power flow card for Home Assistant. Visualises real-time energy flows b
 - Sensors in W, kW or MW (power) and Wh, kWh or MWh (energy) are converted automatically
 - Clean, flat look that follows your Home Assistant theme (light and dark)
 - Header with a live summary (e.g. "Battery discharging · 27 W to the grid") and a grid status pill
-- Fixed card height — the dashboard no longer shifts when consumers switch on or off
+- Stable card height — grows with the most consumers that were on at the same time, but does not shrink each time one switches off
 - Consumers with 0 W are automatically hidden and re-appear when active
 - Debounce protection: prevents consumers from flickering during brief sensor glitches
 - Configurable colours, labels, title and icon via YAML
@@ -231,7 +231,7 @@ Browse icons at [pictogrammers.com](https://pictogrammers.com/library/mdi/). Con
 
 - Sources are stacked in the left column: grid top, solar middle, battery bottom
 - Home sits in the centre, consumers are tiles on the right
-- The card height is fixed by the number of configured sources and consumers, so it never jumps
+- The card is as high as needed for the sources and for the most consumers that were on at the same time since the page was loaded, so it does not shrink each time one switches off
 - When a consumer drops to 0 W it disappears (after `debounce_seconds`); the remaining ones re-centre on the home node
 
 ---
@@ -248,7 +248,7 @@ Browse icons at [pictogrammers.com](https://pictogrammers.com/library/mdi/). Con
 → Increase `debounce_seconds` (e.g. to `15` or `30`) to filter out noisy sensor readings.
 
 **Which version is loaded?**
-→ Open the browser console (F12): the card logs `POWER-FLOW-CARD v4.0.0`.
+→ Open the browser console (F12): the card logs `POWER-FLOW-CARD v4.0.1`.
 
 **Colours look like the old version**
 → Remove the `colors:` block from your YAML to use the new default palette.
@@ -256,6 +256,9 @@ Browse icons at [pictogrammers.com](https://pictogrammers.com/library/mdi/). Con
 ---
 
 ## Changelog
+
+### v4.0.1
+- Fixed: large empty space above the diagram when many consumers are configured. The card reserved room for every configured consumer; it now sizes itself to the most consumers that were on at the same time since the page was loaded
 
 ### v4.0.0
 - New look that matches standard Home Assistant cards: flat circles with a coloured ring, values in the theme text colour with a small grey unit, consumers as tiles

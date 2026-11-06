@@ -1,5 +1,5 @@
 /**
- * Power Flow Card v4.0.0
+ * Power Flow Card v4.0.1
  *
  * Layout:
  *   Kop: icoon, titel, ondertitel met wat er gebeurt, pil met de nettoestand
@@ -32,7 +32,7 @@
  *     icon: mdi:desktop-classic
  */
 
-const PFC_VERSION = '4.0.0';
+const PFC_VERSION = '4.0.1';
 const PFC_CONSUMER_MIN_W = 5;     // een verbruiker telt als "aan" boven deze waarde
 const PFC_SPAWN_MS       = 420;   // om de hoeveel ms er nieuwe stippen vertrekken
 const PFC_POWER_UNITS    = { w: 1, kw: 1000, mw: 1e6 };
@@ -141,6 +141,7 @@ class PowerFlowCard extends HTMLElement {
     ].filter(Boolean);
     this._lastOn = {};
     this._seen = null;
+    this._hw = 0;
     this._buildDOM();
   }
 
@@ -213,7 +214,9 @@ class PowerFlowCard extends HTMLElement {
     const ents = cfg.entities;
     const P    = PFC;
 
-    // ── Layout: vaste hoogte, berekend op alle bronnen én alle verbruikers ──
+    // ── Layout: hoogte voor de bronnen en voor het grootste aantal verbruikers dat sinds het
+    //    laden tegelijk aan stond (this._hw). Zo groeit de kaart mee, maar krimpt ze niet bij
+    //    elke verbruiker die uitvalt, en is er geen plaats nodig voor verbruikers die uit staan.
     const srcList = [];
     if (cfg.grid_entity)  srcList.push({ key: 'grid',  col: c.grid,    lbl: cfg.labels.grid,    icon: 'mdi:transmission-tower' });
     if (cfg.solar_entity) srcList.push({ key: 'solar', col: c.solar,   lbl: cfg.labels.solar,   icon: 'mdi:solar-power-variant' });
@@ -221,7 +224,7 @@ class PowerFlowCard extends HTMLElement {
                           srcList.push({ key: 'bat',   col: c.battery, lbl: cfg.labels.battery, icon: 'mdi:battery' });
 
     const nS = srcList.length;
-    const consH = ents.length * P.C_GAP;
+    const consH = Math.min(ents.length, this._hw || 0) * P.C_GAP;
     let HY = P.PAD + P.RS + P.ABOVE + ((Math.max(nS, 1) - 1) * P.S_GAP) / 2;
     HY = Math.max(HY, P.PAD + consH / 2, P.PAD + P.RH + 22);
     const firstY = HY - ((nS - 1) * P.S_GAP) / 2;
@@ -563,6 +566,11 @@ class PowerFlowCard extends HTMLElement {
 
     // ── Verbruikers: actieve gecentreerd rond het huis ────────────────────────
     const act = this._active, n = act.length;
+    if (n > (this._hw || 0)) {      // meer verbruikers tegelijk aan dan ooit: kaart groeit
+      this._hw = n;
+      this._buildDOM();             // tekent opnieuw en roept _updateLines zelf weer aan
+      return;
+    }
     const conY = {};
     act.forEach((idx, pos) => { conY[idx] = HY - ((n - 1) * P.C_GAP) / 2 + pos * P.C_GAP; });
 
