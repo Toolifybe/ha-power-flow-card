@@ -1,9 +1,9 @@
-# Power Flow Card
+# Home Energy Flow Card
 
-[![Version](https://img.shields.io/badge/version-4.0.2-blue.svg)](https://github.com/Toolifybe/ha-power-flow-card)
+[![Version](https://img.shields.io/badge/version-4.1.0-blue.svg)](https://github.com/Toolifybe/ha-power-flow-card)
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
 
-Animated power flow card for Home Assistant. Visualises real-time energy flows between solar panels, grid, battery, home and individual consumers.
+Animated energy flow card for Home Assistant (formerly *Power Flow Card*). Visualises real-time energy flows between solar panels, grid, battery, home and individual consumers.
 
 ## Features
 
@@ -16,6 +16,9 @@ Animated power flow card for Home Assistant. Visualises real-time energy flows b
 - Stable card height — grows with the most consumers that were on at the same time, but does not shrink each time one switches off
 - Consumers with 0 W are automatically hidden and re-appear when active
 - Debounce protection: prevents consumers from flickering during brief sensor glitches
+- Capacity tariff: grid turns orange near and red above your peak limit, with the monthly peak shown under the grid
+- Separate tiles per battery (state of charge and power), e.g. for multiple Marstek Venus batteries
+- Tap any circle, consumer or battery tile to open the standard Home Assistant more-info dialog with history
 - Configurable colours, labels, title and icon via YAML
 
 ---
@@ -28,7 +31,7 @@ Animated power flow card for Home Assistant. Visualises real-time energy flows b
 2. Go to **Frontend**
 3. Click the **⋮** menu → **Custom repositories**
 4. Add `https://github.com/Toolifybe/ha-power-flow-card` with category **Lovelace**
-5. Search for **Power Flow Card** and click **Download**
+5. Search for **Home Energy Flow Card** and click **Download**
 6. Hard-refresh your browser (Ctrl+Shift+R)
 
 HACS handles copying the file, registering the resource and future updates automatically.
@@ -43,10 +46,13 @@ HACS handles copying the file, registering the resource and future updates autom
 
 ---
 
+> **Upgrading from Power Flow Card?** `type: custom:power-flow-card` keeps working, unless another card
+> (such as ulic75/power-flow-card) already uses that name. Switch to `custom:home-energy-flow-card` when convenient.
+
 ## Minimal configuration
 
 ```yaml
-type: custom:power-flow-card
+type: custom:home-energy-flow-card
 solar_entity: sensor.solar_power
 grid_entity: sensor.grid_power
 ```
@@ -59,7 +65,7 @@ Only set `home_entity` if you have a sensor that measures exactly that.
 ## Full configuration
 
 ```yaml
-type: custom:power-flow-card
+type: custom:home-energy-flow-card
 title: Energy Flow            # default: Energiestroom; use false to hide the header
 icon: mdi:lightning-bolt      # header icon
 
@@ -87,6 +93,27 @@ battery_stored_energy_entities:
   - sensor.marstek_venus_modbus_stored_energy_2
   - sensor.marstek_venus_modbus_stored_energy_3
 battery_capacity_kwh: 15.36
+
+# OR state of charge per battery (same order as battery_entities)
+# battery_soc_entities:
+#   - sensor.battery_1_soc
+#   - sensor.battery_2_soc
+
+# Tiles per battery below the diagram (shown when there are 2+ battery_entities).
+# State of charge per battery comes from battery_soc_entities, or from
+# battery_stored_energy_entities ÷ (battery_capacity_kwh ÷ number of batteries).
+battery_names:
+  - Marstek 1
+  - Marstek 2
+  - Marstek 3
+# show_batteries: false   # hide the tiles
+
+# ── Capacity tariff ────────────────────────────────────────────────────────────
+# Grid turns orange at peak_warn_percent of the limit and red above it.
+peak_entity: sensor.monthly_peak          # shown as "piek …" under the grid
+peak_limit: 2680                          # W; or use peak_limit_entity
+# peak_limit_entity: input_number.peak_limit
+peak_warn_percent: 90                     # default 90
 
 # ── Polarity ───────────────────────────────────────────────────────────────────
 # grid_inverted:
@@ -173,6 +200,13 @@ entities:
 | `battery_soc_entity` | entity | — | Battery state of charge sensor (%) |
 | `battery_stored_energy_entities` | list | — | Stored energy sensors (Wh or kWh) |
 | `battery_capacity_kwh` | number | — | Total battery capacity in kWh |
+| `battery_soc_entities` | list | — | State of charge per battery (%) |
+| `battery_names` | list | `Batterij 1…` | Names for the battery tiles |
+| `show_batteries` | bool | `true` | Show a tile per battery (2+ batteries) |
+| `peak_entity` | entity | — | Monthly peak sensor (W or kW) |
+| `peak_limit` | number | — | Peak limit in W |
+| `peak_limit_entity` | entity | — | Peak limit from a sensor / input_number (W or kW) |
+| `peak_warn_percent` | number | `90` | Grid turns orange from this % of the limit |
 | `grid_inverted` | bool | `false` | Invert grid sensor polarity |
 | `battery_inverted` | bool | `true` | Invert battery sensor polarity |
 | `debounce_seconds` | number | `8` | Seconds at 0 W before a consumer is hidden |
@@ -206,6 +240,7 @@ entities:
 | Battery discharging | Red dots: battery → home |
 | Consumer active | Green dots: home → consumer |
 | Source not active | Grey circle with a dashed line |
+| Grid import near / above peak limit | Grid turns orange / red, pill shows *Bijna piekgrens* / *Boven piekgrens* |
 | Consumer at 0 W | Consumer is hidden (with debounce) |
 
 ---
@@ -248,7 +283,7 @@ Browse icons at [pictogrammers.com](https://pictogrammers.com/library/mdi/). Con
 → Increase `debounce_seconds` (e.g. to `15` or `30`) to filter out noisy sensor readings.
 
 **Which version is loaded?**
-→ Open the browser console (F12): the card logs `POWER-FLOW-CARD v4.0.2`.
+→ Open the browser console (F12): the card logs `HOME-ENERGY-FLOW-CARD v4.1.0`.
 
 **Colours look like the old version**
 → Remove the `colors:` block from your YAML to use the new default palette.
@@ -256,6 +291,12 @@ Browse icons at [pictogrammers.com](https://pictogrammers.com/library/mdi/). Con
 ---
 
 ## Changelog
+
+### v4.1.0
+- Renamed to **Home Energy Flow Card** (`custom:home-energy-flow-card`) — the old name clashed with ulic75/power-flow-card. `custom:power-flow-card` keeps working when that name is free
+- New: capacity tariff — `peak_entity`, `peak_limit` / `peak_limit_entity`, `peak_warn_percent`. Grid turns orange near and red above the limit, the pill shows *Bijna piekgrens* / *Boven piekgrens*
+- New: tiles per battery with state of charge, bar and power (▼ discharging, ▲ charging) — `battery_names`, `battery_soc_entities`, `show_batteries`
+- New: tap a circle, consumer or battery tile to open the more-info dialog
 
 ### v4.0.2
 - Fixed: icons were not centred in their circles in the Home Assistant companion app (WebKit places `foreignObject` content wrongly in a scaled SVG). Icons now sit in an HTML layer above the drawing and scale with the card
