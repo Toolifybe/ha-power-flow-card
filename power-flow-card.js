@@ -1,5 +1,5 @@
 /**
- * Power Flow Card v4.0.1
+ * Power Flow Card v4.0.2
  *
  * Layout:
  *   Kop: icoon, titel, ondertitel met wat er gebeurt, pil met de nettoestand
@@ -32,7 +32,7 @@
  *     icon: mdi:desktop-classic
  */
 
-const PFC_VERSION = '4.0.1';
+const PFC_VERSION = '4.0.2';
 const PFC_CONSUMER_MIN_W = 5;     // een verbruiker telt als "aan" boven deze waarde
 const PFC_SPAWN_MS       = 420;   // om de hoeveel ms er nieuwe stippen vertrekken
 const PFC_POWER_UNITS    = { w: 1, kw: 1000, mw: 1e6 };
@@ -268,8 +268,11 @@ class PowerFlowCard extends HTMLElement {
              background: var(--pfc-tile); color: var(--pfc-sub); }
       .pil:empty { display: none; }
       svg { width: 100%; display: block; font-family: inherit; }
-      foreignObject { overflow: visible; }
-      ha-icon { display: block; line-height: 0; }
+      /* Iconen in een HTML-laag boven de SVG (geen foreignObject: WebKit in de app plaatst
+         die verkeerd bij geschaalde SVG's). --pfc-s = schaal van de tekening. */
+      .diag  { position: relative; }
+      .icons { position: absolute; inset: 0; pointer-events: none; }
+      .ico   { position: absolute; transform: translate(-50%, -50%); display: flex; line-height: 0; }
       text { fill: var(--pfc-txt); }
       .lbl  { fill: var(--pfc-sub); font-size: 11px; font-weight: 500; }
       .sub  { fill: var(--pfc-sub); font-size: 10px; }
@@ -287,11 +290,14 @@ class PowerFlowCard extends HTMLElement {
         <div class="kop-tekst"><h2 id="kopTitel"></h2><p id="kopSub"></p></div>
         <div class="pil" id="kopPil"></div>
       </div>
-      <svg id="svg" viewBox="0 0 ${P.W} ${H}">
-        <g id="lines"></g>
-        <g id="dots"></g>
-        <g id="nodes"></g>
-      </svg>
+      <div class="diag" id="diag">
+        <svg id="svg" viewBox="0 0 ${P.W} ${H}">
+          <g id="lines"></g>
+          <g id="dots"></g>
+          <g id="nodes"></g>
+        </svg>
+        <div class="icons" id="icons"></div>
+      </div>
     </ha-card>`;
 
     const sr = this.shadowRoot;
@@ -305,9 +311,19 @@ class PowerFlowCard extends HTMLElement {
     const linesG = sr.getElementById('lines');
     const dotsG  = sr.getElementById('dots');
     const nodesG = sr.getElementById('nodes');
+    const diag   = sr.getElementById('diag');
+    const iconsL = sr.getElementById('icons');
+
+    // Schaal bijhouden zodat de iconen even groot blijven als de tekening.
+    if (this._ro) this._ro.disconnect();
+    this._ro = typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(() => { if (diag.clientWidth) diag.style.setProperty('--pfc-s', diag.clientWidth / P.W); })
+      : null;
+    if (this._ro && this.isConnected) this._ro.observe(diag);
+    this._diag = diag;
 
     this._E = {
-      svg, dotsG, L: {}, V: {}, S: {}, CG: {}, N: {}, I: {},
+      svg, dotsG, L: {}, V: {}, S: {}, CG: {}, CI: {}, N: {}, I: {},
       sub: sr.getElementById('kopSub'), pil: sr.getElementById('kopPil'),
     };
 
@@ -319,15 +335,16 @@ class PowerFlowCard extends HTMLElement {
       this._E.L[key] = el;
       return el;
     };
-    const icon = (g, name, cx, cy, size, color) => {
-      const fo = pfcEl('foreignObject', { x: cx - size / 2, y: cy - size / 2, width: size, height: size });
+    // Icoon via HA's eigen <ha-icon>, gecentreerd op (cx, cy) in viewBox-eenheden.
+    const icon = (name, cx, cy, size, color) => {
       const hi = document.createElement('ha-icon');
+      hi.className = 'ico';
       hi.setAttribute('icon', name);
-      hi.style.setProperty('--mdc-icon-size', size + 'px');
-      hi.style.width = size + 'px'; hi.style.height = size + 'px';
+      hi.style.left = (cx / P.W * 100) + '%';
+      hi.style.top  = (cy / H * 100) + '%';
+      hi.style.setProperty('--mdc-icon-size', `calc(var(--pfc-s, 1) * ${size}px)`);
       hi.style.color = color;
-      fo.appendChild(hi);
-      g.appendChild(fo);
+      iconsL.appendChild(hi);
       return hi;
     };
     // Waarde: groot getal + kleine grijze eenheid
@@ -356,7 +373,7 @@ class PowerFlowCard extends HTMLElement {
       const circ = pfcEl('circle', { cx: x, cy: y, r: P.RS, class: 'node' });
       g.appendChild(circ);
       this._E.N[s.key] = { circ, col: s.col };
-      this._E.I[s.key] = icon(g, s.icon, x, y, 22, s.col);
+      this._E.I[s.key] = icon(s.icon, x, y, 22, s.col);
       this._E.V[s.key] = value(g, x, y + P.RS + 17, 15);
       const sub = pfcEl('text', { x, y: y + P.RS + 30, 'text-anchor': 'middle', class: 'sub' }, '');
       g.appendChild(sub);
@@ -371,7 +388,7 @@ class PowerFlowCard extends HTMLElement {
       const circ = pfcEl('circle', { cx: P.HX, cy: HY, r: P.RH, class: 'node' });
       circ.style.stroke = c.home; circ.style.strokeWidth = '2.5';
       g.appendChild(circ);
-      icon(g, 'mdi:home', P.HX, HY, 28, c.home);
+      icon('mdi:home', P.HX, HY, 28, c.home);
       this._E.V.home = value(g, P.HX, HY + P.RH + 21, 18);
       nodesG.appendChild(g);
     }
@@ -383,7 +400,9 @@ class PowerFlowCard extends HTMLElement {
       const dot = pfcEl('circle', { cx: P.PX + 19, cy: 0, r: 12 });
       dot.style.fill = tint(e.color, 15);
       g.appendChild(dot);
-      icon(g, e.icon, P.PX + 19, 0, 15, e.color);
+      const ci = icon(e.icon, P.PX + 19, 0, 15, e.color);
+      ci.style.display = 'none';
+      this._E.CI[i] = ci;
       const name = e.name.length > 18 ? e.name.slice(0, 17) + '…' : e.name;
       const nt = pfcEl('text', { x: P.PX + 38, y: -3, class: 'lbl', 'font-size': '10.5' }, name);
       nt.appendChild(pfcEl('title', {}, e.name));
@@ -584,11 +603,15 @@ class PowerFlowCard extends HTMLElement {
 
     const r = P.BEND;
     cfg.entities.forEach((e, i) => {
-      const el = EL['con_' + i], cg = this._E.CG[i];
+      const el = EL['con_' + i], cg = this._E.CG[i], ci = this._E.CI[i];
       const on = conY[i] !== undefined;
       if (cg) {
         cg.setAttribute('display', on ? '' : 'none');
         if (on) cg.setAttribute('transform', `translate(0,${conY[i]})`);
+      }
+      if (ci) {
+        ci.style.display = on ? '' : 'none';
+        if (on) ci.style.top = (conY[i] / L.H * 100) + '%';
       }
       if (el) el.style.display = on ? '' : 'none';
       if (!on || !el) return;
@@ -674,6 +697,7 @@ class PowerFlowCard extends HTMLElement {
 
   connectedCallback() {
     document.addEventListener('visibilitychange', this._onVis);
+    if (this._ro && this._diag) this._ro.observe(this._diag);
     // Ook zonder nieuwe sensorwaarden moet een verbruiker na de nalooptijd verdwijnen.
     if (!this._timer) {
       this._timer = setInterval(() => {
@@ -691,6 +715,7 @@ class PowerFlowCard extends HTMLElement {
 
   disconnectedCallback() {
     document.removeEventListener('visibilitychange', this._onVis);
+    if (this._ro) this._ro.disconnect();
     if (this._timer) { clearInterval(this._timer); this._timer = null; }
     this._stopAnim();
   }

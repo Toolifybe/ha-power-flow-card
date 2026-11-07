@@ -1,6 +1,6 @@
 # Power Flow Card
 
-[![Version](https://img.shields.io/badge/version-4.0.1-blue.svg)](https://github.com/Toolifybe/ha-power-flow-card)
+[![Version](https://img.shields.io/badge/version-4.0.2-blue.svg)](https://github.com/Toolifybe/ha-power-flow-card)
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
 
 Animated power flow card for Home Assistant. Visualises real-time energy flows between solar panels, grid, battery, home and individual consumers.
@@ -248,7 +248,7 @@ Browse icons at [pictogrammers.com](https://pictogrammers.com/library/mdi/). Con
 → Increase `debounce_seconds` (e.g. to `15` or `30`) to filter out noisy sensor readings.
 
 **Which version is loaded?**
-→ Open the browser console (F12): the card logs `POWER-FLOW-CARD v4.0.1`.
+→ Open the browser console (F12): the card logs `POWER-FLOW-CARD v4.0.2`.
 
 **Colours look like the old version**
 → Remove the `colors:` block from your YAML to use the new default palette.
@@ -256,6 +256,9 @@ Browse icons at [pictogrammers.com](https://pictogrammers.com/library/mdi/). Con
 ---
 
 ## Changelog
+
+### v4.0.2
+- Fixed: icons were not centred in their circles in the Home Assistant companion app (WebKit places `foreignObject` content wrongly in a scaled SVG). Icons now sit in an HTML layer above the drawing and scale with the card
 
 ### v4.0.1
 - Fixed: large empty space above the diagram when many consumers are configured. The card reserved room for every configured consumer; it now sizes itself to the most consumers that were on at the same time since the page was loaded
