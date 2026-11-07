@@ -1,6 +1,6 @@
 # Home Energy Flow Card
 
-[![Version](https://img.shields.io/badge/version-4.1.0-blue.svg)](https://github.com/Toolifybe/ha-power-flow-card)
+[![Version](https://img.shields.io/badge/version-4.1.1-blue.svg)](https://github.com/Toolifybe/ha-power-flow-card)
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
 
 Animated energy flow card for Home Assistant (formerly *Power Flow Card*). Visualises real-time energy flows between solar panels, grid, battery, home and individual consumers.
@@ -12,7 +12,7 @@ Animated energy flow card for Home Assistant (formerly *Power Flow Card*). Visua
 - Any MDI icon via Home Assistant's own icon set
 - Sensors in W, kW or MW (power) and Wh, kWh or MWh (energy) are converted automatically
 - Clean, flat look that follows your Home Assistant theme (light and dark)
-- Header with a live summary (e.g. "Battery discharging · 27 W to the grid") and a grid status pill
+- Header with a live summary (e.g. "Zon 390 W · batterij laadt · net 2,01 kW") and a grid status pill
 - Stable card height — grows with the most consumers that were on at the same time, but does not shrink each time one switches off
 - Consumers with 0 W are automatically hidden and re-appear when active
 - Debounce protection: prevents consumers from flickering during brief sensor glitches
@@ -283,7 +283,7 @@ Browse icons at [pictogrammers.com](https://pictogrammers.com/library/mdi/). Con
 → Increase `debounce_seconds` (e.g. to `15` or `30`) to filter out noisy sensor readings.
 
 **Which version is loaded?**
-→ Open the browser console (F12): the card logs `HOME-ENERGY-FLOW-CARD v4.1.0`.
+→ Open the browser console (F12): the card logs `HOME-ENERGY-FLOW-CARD v4.1.1`.
 
 **Colours look like the old version**
 → Remove the `colors:` block from your YAML to use the new default palette.
@@ -291,6 +291,9 @@ Browse icons at [pictogrammers.com](https://pictogrammers.com/library/mdi/). Con
 ---
 
 ## Changelog
+
+### v4.1.1
+- Shorter header summary ("net 2,01 kW" instead of "2,01 kW van het net" — the pill already shows import/export); a long summary wraps to a second line instead of being cut off
 
 ### v4.1.0
 - Renamed to **Home Energy Flow Card** (`custom:home-energy-flow-card`) — the old name clashed with ulic75/power-flow-card. `custom:power-flow-card` keeps working when that name is free

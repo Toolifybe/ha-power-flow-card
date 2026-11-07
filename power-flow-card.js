@@ -1,5 +1,5 @@
 /**
- * Home Energy Flow Card v4.1.0   (vroeger: Power Flow Card)
+ * Home Energy Flow Card v4.1.1   (vroeger: Power Flow Card)
  *
  * Layout:
  *   Kop: icoon, titel, ondertitel met wat er gebeurt, pil met de nettoestand
@@ -35,7 +35,7 @@
  *     icon: mdi:desktop-classic
  */
 
-const PFC_VERSION = '4.1.0';
+const PFC_VERSION = '4.1.1';
 const PFC_WARN = '#f97316';       // net-afname nadert de piekgrens
 const PFC_OVER = '#dc2626';       // net-afname boven de piekgrens
 const PFC_CONSUMER_MIN_W = 5;     // een verbruiker telt als "aan" boven deze waarde
@@ -279,7 +279,8 @@ class HomeEnergyFlowCard extends HTMLElement {
               background: ${tint(c.grid, 14)}; color: ${c.grid}; --mdc-icon-size: 20px; }
       .kop-tekst { min-width: 0; }
       .kop h2 { margin: 0; font-size: 16px; font-weight: 700; line-height: 1.25; }
-      .kop p  { margin: 1px 0 0; font-size: 12px; color: var(--pfc-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .kop p  { margin: 1px 0 0; font-size: 12px; line-height: 1.35; color: var(--pfc-sub);
+               display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
       .pil { margin-left: auto; flex: none; font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 999px;
              background: var(--pfc-tile); color: var(--pfc-sub); }
       .pil:empty { display: none; }
@@ -632,8 +633,9 @@ class HomeEnergyFlowCard extends HTMLElement {
       if (D.solar >= th) parts.push('zon ' + this._fmt(D.solar));
       if (D.dis >= th) parts.push('batterij ontlaadt');
       else if (D.cha >= th) parts.push('batterij laadt');
-      if (D.imp >= th) parts.push(this._fmt(D.imp) + ' van het net');
-      else if (D.exp >= th) parts.push(this._fmt(D.exp) + ' naar het net');
+      // Richting (import/export) staat al in de pil, dus kort houden.
+      if (D.imp >= th) parts.push('net ' + this._fmt(D.imp));
+      else if (D.exp >= th) parts.push('net ' + this._fmt(D.exp));
       let s = parts.join(' · ') || 'Geen stroom';
       E.sub.textContent = s.charAt(0).toUpperCase() + s.slice(1);
     }
