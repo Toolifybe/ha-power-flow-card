@@ -1,5 +1,5 @@
 /**
- * Home Energy Flow Card v4.5.1   (vroeger: Power Flow Card)
+ * Home Energy Flow Card v4.5.2   (vroeger: Power Flow Card)
  *
  * Layout:
  *   Kop: icoon, titel, ondertitel met wat er gebeurt, pil met de nettoestand
@@ -43,7 +43,7 @@
  *     icon: mdi:desktop-classic
  */
 
-const PFC_VERSION = '4.5.1';
+const PFC_VERSION = '4.5.2';
 const PFC_WARN = '#f97316';       // net-afname nadert de piekgrens
 const PFC_OVER = '#dc2626';       // net-afname boven de piekgrens
 const PFC_BAT_LOW = 20, PFC_BAT_MID = 50;   // battery_style: battery → rood / oranje / groen
@@ -566,7 +566,7 @@ class HomeEnergyFlowCard extends HTMLElement {
         this._E.S.peak = pk;
       }
       if (s.key === 'bat' && (cfg.battery_stored_energy_entities || cfg.battery_capacity_kwh)) {
-        const kw = pfcEl('text', { x, y: y + P.RS + 14, 'text-anchor': 'middle', class: 'sub' }, '');
+        const kw = pfcEl('text', { x: x - (nx - x - 8), y: y + P.RS + 14, 'text-anchor': 'start', class: 'sub' }, '');   // links uitgelijnd met de batterij: valt niet buiten de kaart
         g.appendChild(kw);
         this._E.S.batKwh = kw;
       }
@@ -776,14 +776,15 @@ class HomeEnergyFlowCard extends HTMLElement {
     }
 
     put(V.bat, D.batRaw === null ? null : Math.abs(D.batRaw));
+    // Naast de batterij: wat ze nu doet. Eronder: wat erin zit (% en kWh).
     if (S.bat) {
       const soc  = D.soc === null ? '' : Math.round(D.soc) + ' %';
       const mode = D.dis >= th ? T.discharging : D.cha >= th ? T.charging : '';
-      S.bat.textContent = [soc, mode].filter(Boolean).join(' · ');
-    }
-    if (S.batKwh) {
-      S.batKwh.textContent = D.batKwh === null ? ''
-        : (T.left ? T.left + ' ' : '') + this._nf(2).format(D.batKwh) + ' kWh';
+      S.bat.textContent = S.batKwh ? mode : [soc, mode].filter(Boolean).join(' · ');
+      if (S.batKwh) {
+        const kwh = D.batKwh === null ? '' : (T.left ? T.left + ' ' : '') + this._nf(2).format(D.batKwh) + ' kWh';
+        S.batKwh.textContent = [soc, kwh].filter(Boolean).join(' · ');
+      }
     }
     if (E.I.bat) {
       const s = D.soc === null ? null : Math.round(D.soc / 10) * 10;
