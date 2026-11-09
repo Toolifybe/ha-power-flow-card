@@ -1,6 +1,6 @@
 # Home Energy Flow Card
 
-[![Version](https://img.shields.io/badge/version-4.4.0-blue.svg)](https://github.com/Toolifybe/ha-home-energy-flow-card)
+[![Version](https://img.shields.io/badge/version-4.5.0-blue.svg)](https://github.com/Toolifybe/ha-home-energy-flow-card)
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
 
 Animated energy flow card for Home Assistant (formerly *Power Flow Card*). Visualises real-time energy flows between solar panels, grid, battery, home and individual consumers.
@@ -26,6 +26,7 @@ Animated energy flow card for Home Assistant (formerly *Power Flow Card*). Visua
   - grid gauge showing import against your peak limit (blue, orange, red) or export (green)
   - house that fills up with the share of consumption coming from your own solar and battery
 - Tap any circle, consumer or battery tile to open the standard Home Assistant more-info dialog with history
+- Speaks English, Dutch, French and German: follows the Home Assistant language automatically (or set `language`)
 - Configurable colours, labels, title and icon via YAML
 
 ---
@@ -73,7 +74,7 @@ Only set `home_entity` if you have a sensor that measures exactly that.
 
 ```yaml
 type: custom:home-energy-flow-card
-title: Energy Flow            # default: Energiestroom; use false to hide the header
+title: Energy Flow            # default: "Energy flow" in your language; use false to hide the header
 icon: mdi:lightning-bolt      # header icon
 
 # ── Sources ────────────────────────────────────────────────────────────────────
@@ -210,8 +211,9 @@ entities:
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `title` | string / `false` | `Energiestroom` | Header title; `false` hides the header |
-| `show_summary` | boolean | `false` | Short text line under the title ("Zon 2,01 kW · net 300 W"); off by default because the diagram already shows it |
+| `title` | string / `false` | `Energy flow` (translated) | Header title; `false` hides the header |
+| `language` | `en` / `nl` / `fr` / `de` | HA language | Language of the card texts; other HA languages fall back to English |
+| `show_summary` | boolean | `false` | Short text line under the title ("Solar 2.01 kW · grid 300 W"); off by default because the diagram already shows it |
 | `icon` | string | `mdi:lightning-bolt` | Header icon |
 | `solar_entity` | entity | — | Solar power sensor (W) |
 | `grid_entity` | entity | — | Grid power sensor (W) |
@@ -237,10 +239,10 @@ entities:
 | `colors.battery` | colour | `#e5484d` | Battery colour |
 | `colors.home` | colour | `var(--primary-text-color)` | Home colour |
 | `colors.consumers` | colour | `#22a55a` | Default colour for consumers |
-| `labels.solar` | string | `Zon` | Solar node display name |
-| `labels.grid` | string | `Net` | Grid node display name |
-| `labels.battery` | string | `Batterij` | Battery node display name |
-| `labels.home` | string | `Huis` | Home node display name |
+| `labels.solar` | string | `Solar` (translated) | Solar node display name |
+| `labels.grid` | string | `Grid` (translated) | Grid node display name |
+| `labels.battery` | string | `Battery` (translated) | Battery node display name |
+| `labels.home` | string | `Home` (translated) | Home node display name |
 | `entities` | list | — | Individual consumer nodes |
 | `entities[].entity` | entity | — | Power sensor (W) |
 | `entities[].name` | string | entity id | Display name |
@@ -276,8 +278,8 @@ Browse icons at [pictogrammers.com](https://pictogrammers.com/library/mdi/). Con
 ## Layout
 
 ```
-  ┌ ⚡ Energiestroom ─────────────────────── [Export] ┐
-  │ Battery discharging · 27 W to the grid            │
+  ┌ ⚡ Energy flow ───────────────────────── [Export] ┐
+  │                                                   │
   │                                                   │
   │  (Grid)                       ┌[PC        80 W]   │
   │  (Solar) ────── (Home) ───────┼[TV        46 W]   │
@@ -312,6 +314,11 @@ Browse icons at [pictogrammers.com](https://pictogrammers.com/library/mdi/). Con
 ---
 
 ## Changelog
+
+### v4.5.0
+- The card now speaks English, Dutch, French and German. It follows the language of the Home Assistant user; other languages fall back to English
+- New option `language` (`en`, `nl`, `fr`, `de`) to force a language
+- Your own `title` and `labels` still take priority
 
 ### v4.4.0
 - Battery tiles redrawn: each tile shows a battery that fills with the state of charge (red below 20 %, orange below 50 %, green above) with the percentage inside

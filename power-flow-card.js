@@ -1,5 +1,5 @@
 /**
- * Home Energy Flow Card v4.4.0   (vroeger: Power Flow Card)
+ * Home Energy Flow Card v4.5.0   (vroeger: Power Flow Card)
  *
  * Layout:
  *   Kop: icoon, titel, ondertitel met wat er gebeurt, pil met de nettoestand
@@ -14,6 +14,7 @@
  *
  * type: custom:home-energy-flow-card     # custom:power-flow-card werkt ook nog
  * title: Energiestroom
+ * language: fr                           # optioneel; nl / en / fr / de, standaard de taal van HA
  * show_summary: true                     # optioneel; korte samenvatting onder de titel (standaard uit)
  * solar_entity: sensor.solar_power
  * grid_entity: sensor.grid_power
@@ -42,7 +43,7 @@
  *     icon: mdi:desktop-classic
  */
 
-const PFC_VERSION = '4.4.0';
+const PFC_VERSION = '4.5.0';
 const PFC_WARN = '#f97316';       // net-afname nadert de piekgrens
 const PFC_OVER = '#dc2626';       // net-afname boven de piekgrens
 const PFC_BAT_LOW = 20, PFC_BAT_MID = 50;   // battery_style: battery → rood / oranje / groen
@@ -50,6 +51,35 @@ const PFC_BAT_W = 30, PFC_BAT_H = 40;       // batterijvorm (viewBox-eenheden), 
 const PFC_PANEL_W = 46, PFC_PANEL_H = 32, PFC_PANEL_COLS = 4, PFC_PANEL_ROWS = 3;   // solar_style: panel
 const PFC_GAUGE_R = 23;                     // grid_style: gauge
 const PFC_GREEN = '#22a55a';
+
+// Teksten per taal. De kaart volgt de taal van HA (of `language:`), anders Engels.
+const PFC_I18N = {
+  nl: { title: 'Energiestroom', solar: 'Zon', grid: 'Net', battery: 'Batterij', home: 'Huis',
+        import: 'Import', export: 'Export', neutral: 'Neutraal', peak_warn: 'Bijna piekgrens', peak_over: 'Boven piekgrens',
+        imp: 'import', exp: 'export', peak: 'piek', limit: 'grens',
+        charging: 'laden', discharging: 'ontladen', idle: 'rust', left: 'nog',
+        sum_solar: 'zon', sum_dis: 'batterij ontlaadt', sum_cha: 'batterij laadt', sum_grid: 'net', no_power: 'Geen stroom',
+        self_share: 'deel van het verbruik uit eigen zon en batterij', no_config: 'Geen configuratie' },
+  en: { title: 'Energy flow', solar: 'Solar', grid: 'Grid', battery: 'Battery', home: 'Home',
+        import: 'Import', export: 'Export', neutral: 'Neutral', peak_warn: 'Near peak limit', peak_over: 'Above peak limit',
+        imp: 'import', exp: 'export', peak: 'peak', limit: 'limit',
+        charging: 'charging', discharging: 'discharging', idle: 'idle', left: '',
+        sum_solar: 'solar', sum_dis: 'battery discharging', sum_cha: 'battery charging', sum_grid: 'grid', no_power: 'No power',
+        self_share: 'share of consumption from own solar and battery', no_config: 'No configuration' },
+  fr: { title: "Flux d'énergie", solar: 'Solaire', grid: 'Réseau', battery: 'Batterie', home: 'Maison',
+        import: 'Import', export: 'Export', neutral: 'Neutre', peak_warn: 'Proche du pic', peak_over: 'Au-dessus du pic',
+        imp: 'import', exp: 'export', peak: 'pic', limit: 'limite',
+        charging: 'charge', discharging: 'décharge', idle: 'repos', left: 'encore',
+        sum_solar: 'solaire', sum_dis: 'batterie se décharge', sum_cha: 'batterie se charge', sum_grid: 'réseau', no_power: 'Pas de courant',
+        self_share: 'part de la consommation venant du solaire et de la batterie', no_config: 'Aucune configuration' },
+  de: { title: 'Energiefluss', solar: 'Solar', grid: 'Netz', battery: 'Batterie', home: 'Haus',
+        import: 'Bezug', export: 'Einspeisung', neutral: 'Neutral', peak_warn: 'Nahe Spitzenlast', peak_over: 'Über Spitzenlast',
+        imp: 'Bezug', exp: 'Einspeisung', peak: 'Spitze', limit: 'Grenze',
+        charging: 'lädt', discharging: 'entlädt', idle: 'Ruhe', left: 'noch',
+        sum_solar: 'Solar', sum_dis: 'Batterie entlädt', sum_cha: 'Batterie lädt', sum_grid: 'Netz', no_power: 'Kein Strom',
+        self_share: 'Anteil des Verbrauchs aus eigener Solaranlage und Batterie', no_config: 'Keine Konfiguration' },
+};
+const pfcTaal = (l) => { l = String(l || '').toLowerCase().split(/[-_]/)[0]; return PFC_I18N[l] ? l : 'en'; };
 const PFC_CONSUMER_MIN_W = 5;     // een verbruiker telt als "aan" boven deze waarde
 const PFC_SPAWN_MS       = 420;   // om de hoeveel ms er nieuwe stippen vertrekken
 const PFC_POWER_UNITS    = { w: 1, kw: 1000, mw: 1e6 };
@@ -107,7 +137,7 @@ class HomeEnergyFlowCard extends HTMLElement {
   }
 
   setConfig(cfg) {
-    if (!cfg) throw new Error('Geen configuratie');
+    if (!cfg) throw new Error(PFC_I18N[this._taal()].no_config);
     const list = (v) => Array.isArray(v) ? v.filter(Boolean) : null;
     const num  = (v, d) => { const n = parseFloat(v); return isNaN(n) ? d : n; };
     const col  = cfg.colors || {};
@@ -141,7 +171,6 @@ class HomeEnergyFlowCard extends HTMLElement {
       peak_limit_entity: cfg.peak_limit_entity || null,
       peak_limit:        num(cfg.peak_limit, 0) || null,
       peak_warn_percent: Math.max(1, num(cfg.peak_warn_percent, 90)),
-      title:  cfg.title === false ? null : (cfg.title || 'Energiestroom'),
       icon:   cfg.icon || 'mdi:lightning-bolt',
       show_summary: cfg.show_summary === true,
       debounce_seconds: Math.max(0, num(cfg.debounce_seconds, 8)),
@@ -157,13 +186,10 @@ class HomeEnergyFlowCard extends HTMLElement {
           }))
         : [],
       colors,
-      labels: {
-        solar:   lab.solar   || 'Zon',
-        grid:    lab.grid    || 'Net',
-        battery: lab.battery || 'Batterij',
-        home:    lab.home    || 'Huis',
-      },
+      language: cfg.language || null,
     };
+    this._ruw = { title: cfg.title, labels: lab };
+    this._zetTaal();
     const c = this._cfg;
     this._entityIds = [
       c.solar_entity, c.grid_entity, c.home_entity, c.battery_entity, c.battery_soc_entity,
@@ -179,6 +205,12 @@ class HomeEnergyFlowCard extends HTMLElement {
 
   set hass(h) {
     this._hass = h;
+    // Taal van HA pas nu gekend (of gewijzigd): opnieuw tekenen in die taal.
+    if (this._cfg && !this._cfg.language && this._taal() !== this._lang) {
+      this._zetTaal();
+      this._seen = null;
+      this._buildDOM();
+    }
     // HA roept dit aan bij élke statuswijziging in het hele systeem: alleen werken als
     // één van onze sensoren veranderde.
     if (this._entityIds && this._seen) {
@@ -187,6 +219,27 @@ class HomeEnergyFlowCard extends HTMLElement {
     }
     if (this._entityIds) this._seen = this._entityIds.map(id => h.states[id]);
     this._updateData();
+  }
+
+  // ── Taal ───────────────────────────────────────────────────────────────────
+  _taal() {
+    const h = this._hass;
+    return pfcTaal((this._cfg && this._cfg.language)
+      || (h && ((h.locale && h.locale.language) || h.language))
+      || (typeof document !== 'undefined' && document.documentElement.lang)
+      || (typeof navigator !== 'undefined' && navigator.language));
+  }
+
+  // Titel en namen in de gekozen taal; eigen `title`/`labels` gaan altijd voor.
+  _zetTaal() {
+    this._lang = this._taal();
+    const T = this._T = PFC_I18N[this._lang];
+    const r = this._ruw, lab = r.labels;
+    this._cfg.title = r.title === false ? null : (r.title || T.title);
+    this._cfg.labels = {
+      solar: lab.solar || T.solar, grid: lab.grid || T.grid,
+      battery: lab.battery || T.battery, home: lab.home || T.home,
+    };
   }
 
   // ── Sensor helpers ─────────────────────────────────────────────────────────
@@ -531,7 +584,7 @@ class HomeEnergyFlowCard extends HTMLElement {
         omtrek.style.stroke = c.home;
         g.appendChild(omtrek);
         const pct = pfcEl('text', { x, y: y + 18, 'text-anchor': 'middle', class: 'huis-pct' }, '');
-        pct.appendChild(pfcEl('title', {}, 'deel van het verbruik uit eigen zon en batterij'));
+        pct.appendChild(pfcEl('title', {}, this._T.self_share));
         g.appendChild(pct);
         this._E.HUIS = { fill, pct, top: y - 30, bodem: y + 28 };
         icon('mdi:home', x, y - 9, 18, c.home);
@@ -696,7 +749,8 @@ class HomeEnergyFlowCard extends HTMLElement {
     state('solar', D.solar >= th);
 
     put(V.grid, D.gridRaw === null ? null : Math.abs(D.gridRaw));
-    if (S.grid) S.grid.textContent = D.gridRaw === null ? '' : D.imp >= th ? 'import' : D.exp >= th ? 'export' : '';
+    const T = this._T;
+    if (S.grid) S.grid.textContent = D.gridRaw === null ? '' : D.imp >= th ? T.imp : D.exp >= th ? T.exp : '';
     // Piekgrens: Net (cirkel, icoon, lijn en stippen) kleurt oranje of rood
     const gridCol = D.peakLevel === 'over' ? PFC_OVER : D.peakLevel === 'warn' ? PFC_WARN : cfg.colors.grid;
     if (E.N.grid) E.N.grid.col = gridCol;
@@ -704,15 +758,15 @@ class HomeEnergyFlowCard extends HTMLElement {
     this._gridCol = gridCol;
     state('grid', D.imp >= th || D.exp >= th);
     if (S.peak) {
-      S.peak.textContent = D.peak !== null ? 'piek ' + this._fmt(D.peak)
-                         : D.limit ? 'grens ' + this._fmt(D.limit) : '';
+      S.peak.textContent = D.peak !== null ? T.peak + ' ' + this._fmt(D.peak)
+                         : D.limit ? T.limit + ' ' + this._fmt(D.limit) : '';
       S.peak.style.fill = D.peakLevel ? gridCol : '';
     }
 
     put(V.bat, D.batRaw === null ? null : Math.abs(D.batRaw));
     if (S.bat) {
       const soc  = D.soc === null ? '' : Math.round(D.soc) + ' %';
-      const mode = D.dis >= th ? 'ontladen' : D.cha >= th ? 'laden' : '';
+      const mode = D.dis >= th ? T.discharging : D.cha >= th ? T.charging : '';
       S.bat.textContent = [soc, mode].filter(Boolean).join(' · ');
     }
     if (E.I.bat) {
@@ -765,31 +819,31 @@ class HomeEnergyFlowCard extends HTMLElement {
       const mode = d.p === null ? '' : d.p >= th ? 'dis' : d.p <= -th ? 'cha' : '';
       b.w.className = 'bat-w ' + mode;
       b.w.textContent = d.p === null ? '–' : (mode === 'dis' ? '▼ ' : mode === 'cha' ? '▲ ' : '') + this._fmt(Math.abs(d.p));
-      b.w.title = mode === 'dis' ? 'ontladen' : mode === 'cha' ? 'laden' : 'rust';
+      b.w.title = mode === 'dis' ? T.discharging : mode === 'cha' ? T.charging : T.idle;
       const soc = d.soc === null ? 0 : Math.max(0, Math.min(100, d.soc));
       b.bar.style.width = soc + '%';
       b.bar.style.background = d.soc === null ? '' : soc < PFC_BAT_LOW ? PFC_OVER : soc < PFC_BAT_MID ? '#f59e0b' : PFC_GREEN;
       b.kwh.style.display = d.kwh === null || d.kwh === undefined ? 'none' : '';
-      if (d.kwh !== null && d.kwh !== undefined) b.kwh.innerHTML = `nog <b>${this._nf(2).format(d.kwh)}</b> kWh`;
+      if (d.kwh !== null && d.kwh !== undefined) b.kwh.innerHTML = (T.left ? T.left + ' ' : '') + `<b>${this._nf(2).format(d.kwh)}</b> kWh`;
     });
 
     // ── Kop: wat gebeurt er? ──
     if (E.sub) {
       const parts = [];
-      if (D.solar >= th) parts.push('zon ' + this._fmt(D.solar));
-      if (D.dis >= th) parts.push('batterij ontlaadt');
-      else if (D.cha >= th) parts.push('batterij laadt');
+      if (D.solar >= th) parts.push(T.sum_solar + ' ' + this._fmt(D.solar));
+      if (D.dis >= th) parts.push(T.sum_dis);
+      else if (D.cha >= th) parts.push(T.sum_cha);
       // Richting (import/export) staat al in de pil, dus kort houden.
-      if (D.imp >= th) parts.push('net ' + this._fmt(D.imp));
-      else if (D.exp >= th) parts.push('net ' + this._fmt(D.exp));
-      let s = parts.join(' · ') || 'Geen stroom';
+      if (D.imp >= th) parts.push(T.sum_grid + ' ' + this._fmt(D.imp));
+      else if (D.exp >= th) parts.push(T.sum_grid + ' ' + this._fmt(D.exp));
+      let s = parts.join(' · ') || T.no_power;
       E.sub.textContent = s.charAt(0).toUpperCase() + s.slice(1);
       E.sub.title = E.sub.textContent;   // volledige tekst als het afgekapt wordt
     }
     if (E.pil) {
       E.pil.textContent = !cfg.grid_entity || D.gridRaw === null ? ''
-        : D.peakLevel === 'over' ? 'Boven piekgrens' : D.peakLevel === 'warn' ? 'Bijna piekgrens'
-        : D.imp >= th ? 'Import' : D.exp >= th ? 'Export' : 'Neutraal';
+        : D.peakLevel === 'over' ? T.peak_over : D.peakLevel === 'warn' ? T.peak_warn
+        : D.imp >= th ? T.import : D.exp >= th ? T.export : T.neutral;
       const pc = D.peakLevel === 'over' ? PFC_OVER : D.peakLevel === 'warn' ? PFC_WARN : null;
       E.pil.style.background = pc ? `color-mix(in srgb, ${pc} 15%, transparent)` : '';
       E.pil.style.color = pc || '';
