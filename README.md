@@ -1,6 +1,6 @@
 # Home Energy Flow Card
 
-[![Version](https://img.shields.io/badge/version-4.1.1-blue.svg)](https://github.com/Toolifybe/ha-power-flow-card)
+[![Version](https://img.shields.io/badge/version-4.2.0-blue.svg)](https://github.com/Toolifybe/ha-power-flow-card)
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
 
 Animated energy flow card for Home Assistant (formerly *Power Flow Card*). Visualises real-time energy flows between solar panels, grid, battery, home and individual consumers.
@@ -20,6 +20,7 @@ Animated energy flow card for Home Assistant (formerly *Power Flow Card*). Visua
 - Debounce protection: prevents consumers from flickering during brief sensor glitches
 - Capacity tariff: grid turns orange near and red above your peak limit, with the monthly peak shown under the grid
 - Separate tiles per battery (state of charge and power), e.g. for multiple Marstek Venus batteries
+- Optional battery shape instead of a circle: fills up with the state of charge (red, orange, green) and shows a bolt while charging
 - Tap any circle, consumer or battery tile to open the standard Home Assistant more-info dialog with history
 - Configurable colours, labels, title and icon via YAML
 
@@ -109,6 +110,10 @@ battery_names:
   - Marstek 2
   - Marstek 3
 # show_batteries: false   # hide the tiles
+
+# Battery drawn as a battery that fills up with the state of charge instead of a circle:
+# red below 20 %, orange below 50 %, green above; a bolt while charging. Default: circle.
+# battery_style: battery
 
 # ── Capacity tariff ────────────────────────────────────────────────────────────
 # Grid turns orange at peak_warn_percent of the limit and red above it.
@@ -293,6 +298,9 @@ Browse icons at [pictogrammers.com](https://pictogrammers.com/library/mdi/). Con
 ---
 
 ## Changelog
+
+### v4.2.0
+- New option `battery_style: battery`: the battery is drawn as a battery that fills up with the state of charge (red below 20 %, orange below 50 %, green above) with a bolt while charging. The default stays the circle.
 
 ### v4.1.1
 - Shorter header summary ("net 2,01 kW" instead of "2,01 kW van het net" — the pill already shows import/export); a long summary wraps to a second line instead of being cut off

@@ -1,5 +1,5 @@
 /**
- * Home Energy Flow Card v4.1.1   (vroeger: Power Flow Card)
+ * Home Energy Flow Card v4.2.0   (vroeger: Power Flow Card)
  *
  * Layout:
  *   Kop: icoon, titel, ondertitel met wat er gebeurt, pil met de nettoestand
@@ -25,6 +25,7 @@
  *   - sensor.bat1_energy
  * battery_capacity_kwh: 15.36
  * battery_names: [Marstek 1, Marstek 2]   # optioneel; tegels per batterij onderaan
+ * battery_style: battery                 # optioneel; batterij die volloopt i.p.v. een cirkel
  * peak_entity: sensor.maandpiek           # optioneel; capaciteitstarief
  * peak_limit: 2680                        # of peak_limit_entity: sensor.piekgrens
  * home_entity: sensor.home_power      # optioneel; zonder wordt het huisverbruik berekend
@@ -35,9 +36,11 @@
  *     icon: mdi:desktop-classic
  */
 
-const PFC_VERSION = '4.1.1';
+const PFC_VERSION = '4.2.0';
 const PFC_WARN = '#f97316';       // net-afname nadert de piekgrens
 const PFC_OVER = '#dc2626';       // net-afname boven de piekgrens
+const PFC_BAT_LOW = 20, PFC_BAT_MID = 50;   // battery_style: battery → rood / oranje / groen
+const PFC_BAT_W = 30, PFC_BAT_H = 40;       // batterijvorm (viewBox-eenheden), knopje komt erbovenop
 const PFC_CONSUMER_MIN_W = 5;     // een verbruiker telt als "aan" boven deze waarde
 const PFC_SPAWN_MS       = 420;   // om de hoeveel ms er nieuwe stippen vertrekken
 const PFC_POWER_UNITS    = { w: 1, kw: 1000, mw: 1e6 };
@@ -119,6 +122,7 @@ class HomeEnergyFlowCard extends HTMLElement {
       battery_soc_entities: list(cfg.battery_soc_entities),
       battery_names:  Array.isArray(cfg.battery_names) ? cfg.battery_names.map(String) : null,
       show_batteries: cfg.show_batteries !== false,
+      battery_style:  cfg.battery_style === 'battery' ? 'battery' : 'circle',
       peak_entity:       cfg.peak_entity       || null,
       peak_limit_entity: cfg.peak_limit_entity || null,
       peak_limit:        num(cfg.peak_limit, 0) || null,
@@ -296,6 +300,8 @@ class HomeEnergyFlowCard extends HTMLElement {
       .unit { fill: var(--pfc-sub); font-weight: 500; }
       .val  { font-weight: 700; }
       .node { fill: var(--pfc-bg); stroke-width: 2; }
+      .bat-fill { transition: y .6s, height .6s, fill .6s; }
+      .bat-bolt { filter: drop-shadow(0 0 1.5px rgba(0,0,0,.55)); }
       .tile { fill: var(--pfc-tile); }
       .line { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: opacity .3s; }
       .line.off { stroke: var(--pfc-line) !important; stroke-width: 1.5; stroke-dasharray: 4 4; opacity: 1; }
@@ -410,10 +416,25 @@ class HomeEnergyFlowCard extends HTMLElement {
       const { x, y } = srcPos[s.key];
       const g = pfcEl('g');
       g.appendChild(pfcEl('text', { x, y: y - P.RS - 7, 'text-anchor': 'middle', class: 'lbl' }, s.lbl));
-      const circ = pfcEl('circle', { cx: x, cy: y, r: P.RS, class: 'node' });
-      g.appendChild(circ);
-      this._E.N[s.key] = { circ, col: s.col };
-      this._E.I[s.key] = icon(s.icon, x, y, 22, s.col);
+      if (s.key === 'bat' && cfg.battery_style === 'battery') {
+        // Staande batterij: rand + knopje in de toestandskleur, vulling stijgt met de laadtoestand.
+        const bw = PFC_BAT_W, bh = PFC_BAT_H, top = y - bh / 2 + 2, inset = 3.5;
+        const cap  = pfcEl('rect', { x: x - 6, y: top - 5, width: 12, height: 5, rx: 1.5 });
+        const body = pfcEl('rect', { x: x - bw / 2, y: top, width: bw, height: bh, rx: 6, class: 'node' });
+        const fill = pfcEl('rect', { x: x - bw / 2 + inset, y: top + bh - inset, width: bw - 2 * inset, height: 0, rx: 3, class: 'bat-fill' });
+        g.appendChild(cap); g.appendChild(body); g.appendChild(fill);
+        this._E.N[s.key] = { circ: body, cap, col: s.col };
+        this._E.BAT = { fill, top: top + inset, h: bh - 2 * inset };
+        const bolt = icon('mdi:lightning-bolt', x, y + 2, 18, '#fff');
+        bolt.classList.add('bat-bolt');
+        bolt.style.display = 'none';
+        this._E.BAT.bolt = bolt;
+      } else {
+        const circ = pfcEl('circle', { cx: x, cy: y, r: P.RS, class: 'node' });
+        g.appendChild(circ);
+        this._E.N[s.key] = { circ, col: s.col };
+        this._E.I[s.key] = icon(s.icon, x, y, 22, s.col);
+      }
       this._E.V[s.key] = value(g, x, y + P.RS + 17, 15);
       const sub = pfcEl('text', { x, y: y + P.RS + 30, 'text-anchor': 'middle', class: 'sub' }, '');
       g.appendChild(sub);
@@ -579,6 +600,7 @@ class HomeEnergyFlowCard extends HTMLElement {
       const N = E.N[key], I = E.I[key];
       if (!N) return;
       N.circ.style.stroke = on ? N.col : 'var(--pfc-line)';
+      if (N.cap) N.cap.style.fill = on ? N.col : 'var(--pfc-line)';
       if (I) I.style.color = on ? N.col : 'var(--pfc-off)';
     };
 
@@ -610,6 +632,15 @@ class HomeEnergyFlowCard extends HTMLElement {
       const ic = D.cha >= th ? 'mdi:battery-charging' + (s === null || s === 100 ? '' : s === 0 ? '-outline' : '-' + s)
                : s === null || s === 100 ? 'mdi:battery' : s === 0 ? 'mdi:battery-outline' : 'mdi:battery-' + s;
       if (E.I.bat.getAttribute('icon') !== ic) E.I.bat.setAttribute('icon', ic);
+    }
+    if (E.BAT) {
+      const soc = D.soc === null ? 0 : Math.max(0, Math.min(100, D.soc));
+      const h = E.BAT.h * soc / 100;
+      E.BAT.fill.setAttribute('y', E.BAT.top + E.BAT.h - h);
+      E.BAT.fill.setAttribute('height', h);
+      E.BAT.fill.style.fill = D.soc === null ? 'var(--pfc-line)'
+        : soc < PFC_BAT_LOW ? PFC_OVER : soc < PFC_BAT_MID ? '#f59e0b' : '#22a55a';
+      E.BAT.bolt.style.display = D.cha >= th ? '' : 'none';
     }
     state('bat', D.dis >= th || D.cha >= th);
 
@@ -668,10 +699,11 @@ class HomeEnergyFlowCard extends HTMLElement {
     };
 
     // Bron ↔ huis. fwd = bron → huis, back = huis → bron.
+    const rBat = cfg.battery_style === 'battery' ? PFC_BAT_W / 2 + 1 : RS;
     const source = (key, col, fwd, back) => {
       const p = L.srcPos[key];
       if (!p) return;
-      const a = ep(p.x, p.y, RS, HX, HY), b = ep(HX, HY, RH, p.x, p.y);
+      const a = ep(p.x, p.y, key === 'bat' ? rBat : RS, HX, HY), b = ep(HX, HY, RH, p.x, p.y);
       setPath(EL['src_' + key], [a, b], null, fwd >= th || back >= th);
       if (fwd  >= th) flows.push({ pts: [a, b], col });
       if (back >= th) flows.push({ pts: [b, a], col });
@@ -683,14 +715,14 @@ class HomeEnergyFlowCard extends HTMLElement {
     // Zon → batterij: boog links van de kolom, zodat de lijn niet door de tekst loopt.
     const sp = L.srcPos.solar, bp = L.srcPos.bat;
     if (sp && bp && EL.solar_bat) {
-      const x = P.SX - RS, cx = x - 20;
+      const x = P.SX - RS, cx = x - 20, xb = P.SX - rBat;
       const on = F.solarBat >= th;
-      setPath(EL.solar_bat, null, `M${x},${sp.y} C${cx},${sp.y} ${cx},${bp.y} ${x},${bp.y}`, on);
+      setPath(EL.solar_bat, null, `M${x},${sp.y} C${cx},${sp.y} ${cx},${bp.y} ${xb},${bp.y}`, on);
       if (on) {
         const pts = [];
         for (let k = 0; k <= 8; k++) {
           const t = k / 8, u = 1 - t;
-          pts.push({ x: u * u * u * x + 3 * u * u * t * cx + 3 * u * t * t * cx + t * t * t * x,
+          pts.push({ x: u * u * u * x + 3 * u * u * t * cx + 3 * u * t * t * cx + t * t * t * xb,
                      y: u * u * u * sp.y + 3 * u * u * t * sp.y + 3 * u * t * t * bp.y + t * t * t * bp.y });
         }
         flows.push({ pts, col: c.solar });
