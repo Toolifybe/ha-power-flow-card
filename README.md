@@ -1,6 +1,6 @@
 # Home Energy Flow Card
 
-[![Version](https://img.shields.io/badge/version-4.3.0-blue.svg)](https://github.com/Toolifybe/ha-power-flow-card)
+[![Version](https://img.shields.io/badge/version-4.3.1-blue.svg)](https://github.com/Toolifybe/ha-power-flow-card)
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
 
 Animated energy flow card for Home Assistant (formerly *Power Flow Card*). Visualises real-time energy flows between solar panels, grid, battery, home and individual consumers.
@@ -211,6 +211,7 @@ entities:
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `title` | string / `false` | `Energiestroom` | Header title; `false` hides the header |
+| `show_summary` | boolean | `false` | Short text line under the title ("Zon 2,01 kW · net 300 W"); off by default because the diagram already shows it |
 | `icon` | string | `mdi:lightning-bolt` | Header icon |
 | `solar_entity` | entity | — | Solar power sensor (W) |
 | `grid_entity` | entity | — | Grid power sensor (W) |
@@ -311,6 +312,9 @@ Browse icons at [pictogrammers.com](https://pictogrammers.com/library/mdi/). Con
 ---
 
 ## Changelog
+
+### v4.3.1
+- The header summary under the title is now hidden by default: the diagram already shows the same values. Turn it back on with `show_summary: true`; it then stays on one line (ends with … on a small screen, full text on hover)
 
 ### v4.3.0
 - New option `solar_style: panel`: a solar panel whose cells light up with the production compared to `solar_max_power` (default 5000 W)

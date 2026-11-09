@@ -1,5 +1,5 @@
 /**
- * Home Energy Flow Card v4.3.0   (vroeger: Power Flow Card)
+ * Home Energy Flow Card v4.3.1   (vroeger: Power Flow Card)
  *
  * Layout:
  *   Kop: icoon, titel, ondertitel met wat er gebeurt, pil met de nettoestand
@@ -14,6 +14,7 @@
  *
  * type: custom:home-energy-flow-card     # custom:power-flow-card werkt ook nog
  * title: Energiestroom
+ * show_summary: true                     # optioneel; korte samenvatting onder de titel (standaard uit)
  * solar_entity: sensor.solar_power
  * grid_entity: sensor.grid_power
  * grid_inverted: false
@@ -41,7 +42,7 @@
  *     icon: mdi:desktop-classic
  */
 
-const PFC_VERSION = '4.3.0';
+const PFC_VERSION = '4.3.1';
 const PFC_WARN = '#f97316';       // net-afname nadert de piekgrens
 const PFC_OVER = '#dc2626';       // net-afname boven de piekgrens
 const PFC_BAT_LOW = 20, PFC_BAT_MID = 50;   // battery_style: battery → rood / oranje / groen
@@ -142,6 +143,7 @@ class HomeEnergyFlowCard extends HTMLElement {
       peak_warn_percent: Math.max(1, num(cfg.peak_warn_percent, 90)),
       title:  cfg.title === false ? null : (cfg.title || 'Energiestroom'),
       icon:   cfg.icon || 'mdi:lightning-bolt',
+      show_summary: cfg.show_summary === true,
       debounce_seconds: Math.max(0, num(cfg.debounce_seconds, 8)),
       min_power:        Math.max(0, num(cfg.min_power, 10)),
       grid_inverted:    cfg.grid_inverted    !== undefined ? !!cfg.grid_inverted    : false,
@@ -297,7 +299,7 @@ class HomeEnergyFlowCard extends HTMLElement {
       .kop-tekst { min-width: 0; }
       .kop h2 { margin: 0; font-size: 16px; font-weight: 700; line-height: 1.25; }
       .kop p  { margin: 1px 0 0; font-size: 12px; line-height: 1.35; color: var(--pfc-sub);
-               display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+               white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .pil { margin-left: auto; flex: none; font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 999px;
              background: var(--pfc-tile); color: var(--pfc-sub); }
       .pil:empty { display: none; }
@@ -362,6 +364,8 @@ class HomeEnergyFlowCard extends HTMLElement {
     if (cfg.title) {
       sr.getElementById('kopTitel').textContent = cfg.title;
       sr.getElementById('kopIcon').setAttribute('icon', cfg.icon);
+      // De samenvatting herhaalt wat het schema al toont: standaard weg.
+      if (!cfg.show_summary) sr.getElementById('kopSub').remove();
     } else {
       sr.getElementById('kop').remove();
     }
@@ -382,7 +386,7 @@ class HomeEnergyFlowCard extends HTMLElement {
 
     this._E = {
       svg, dotsG, L: {}, V: {}, S: {}, CG: {}, CI: {}, N: {}, I: {},
-      sub: sr.getElementById('kopSub'), pil: sr.getElementById('kopPil'),
+      sub: cfg.show_summary ? sr.getElementById('kopSub') : null, pil: sr.getElementById('kopPil'),
     };
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -764,6 +768,7 @@ class HomeEnergyFlowCard extends HTMLElement {
       else if (D.exp >= th) parts.push('net ' + this._fmt(D.exp));
       let s = parts.join(' · ') || 'Geen stroom';
       E.sub.textContent = s.charAt(0).toUpperCase() + s.slice(1);
+      E.sub.title = E.sub.textContent;   // volledige tekst als het afgekapt wordt
     }
     if (E.pil) {
       E.pil.textContent = !cfg.grid_entity || D.gridRaw === null ? ''
