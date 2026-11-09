@@ -1,6 +1,6 @@
 # Home Energy Flow Card
 
-[![Version](https://img.shields.io/badge/version-4.2.0-blue.svg)](https://github.com/Toolifybe/ha-power-flow-card)
+[![Version](https://img.shields.io/badge/version-4.3.0-blue.svg)](https://github.com/Toolifybe/ha-power-flow-card)
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
 
 Animated energy flow card for Home Assistant (formerly *Power Flow Card*). Visualises real-time energy flows between solar panels, grid, battery, home and individual consumers.
@@ -20,7 +20,11 @@ Animated energy flow card for Home Assistant (formerly *Power Flow Card*). Visua
 - Debounce protection: prevents consumers from flickering during brief sensor glitches
 - Capacity tariff: grid turns orange near and red above your peak limit, with the monthly peak shown under the grid
 - Separate tiles per battery (state of charge and power), e.g. for multiple Marstek Venus batteries
-- Optional battery shape instead of a circle: fills up with the state of charge (red, orange, green) and shows a bolt while charging
+- Optional shapes instead of circles, each showing extra information:
+  - battery that fills up with the state of charge (red, orange, green), with a bolt while charging
+  - solar panel whose cells light up with the production compared to your peak power
+  - grid gauge showing import against your peak limit (blue, orange, red) or export (green)
+  - house that fills up with the share of consumption coming from your own solar and battery
 - Tap any circle, consumer or battery tile to open the standard Home Assistant more-info dialog with history
 - Configurable colours, labels, title and icon via YAML
 
@@ -114,6 +118,15 @@ battery_names:
 # Battery drawn as a battery that fills up with the state of charge instead of a circle:
 # red below 20 %, orange below 50 %, green above; a bolt while charging. Default: circle.
 # battery_style: battery
+
+# ── Shapes ─────────────────────────────────────────────────────────────────────
+# Optional shapes instead of circles. Each one can be switched on separately.
+# solar_style: panel        # cells light up with production / solar_max_power
+# solar_max_power: 5000     # peak power of your panels in W (default 5000)
+# grid_style: gauge         # import fills from the left (blue → orange → red against
+#                           # the peak limit), export fills from the right (green)
+# grid_max_power: 5000      # gauge scale in W when there is no peak limit (default 5000)
+# home_style: house         # fills up with the share of consumption from solar and battery
 
 # ── Capacity tariff ────────────────────────────────────────────────────────────
 # Grid turns orange at peak_warn_percent of the limit and red above it.
@@ -298,6 +311,12 @@ Browse icons at [pictogrammers.com](https://pictogrammers.com/library/mdi/). Con
 ---
 
 ## Changelog
+
+### v4.3.0
+- New option `solar_style: panel`: a solar panel whose cells light up with the production compared to `solar_max_power` (default 5000 W)
+- New option `grid_style: gauge`: a gauge that shows grid import against your peak limit (blue, orange near the limit, red above) and export in green from the other side; without a peak limit the scale is `grid_max_power` (default 5000 W)
+- New option `home_style: house`: a house that fills up with the share of consumption coming from your own solar and battery, with the percentage inside
+- The default stays the circles
 
 ### v4.2.0
 - New option `battery_style: battery`: the battery is drawn as a battery that fills up with the state of charge (red below 20 %, orange below 50 %, green above) with a bolt while charging. The default stays the circle.

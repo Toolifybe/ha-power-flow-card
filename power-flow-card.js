@@ -1,5 +1,5 @@
 /**
- * Home Energy Flow Card v4.2.0   (vroeger: Power Flow Card)
+ * Home Energy Flow Card v4.3.0   (vroeger: Power Flow Card)
  *
  * Layout:
  *   Kop: icoon, titel, ondertitel met wat er gebeurt, pil met de nettoestand
@@ -26,6 +26,11 @@
  * battery_capacity_kwh: 15.36
  * battery_names: [Marstek 1, Marstek 2]   # optioneel; tegels per batterij onderaan
  * battery_style: battery                 # optioneel; batterij die volloopt i.p.v. een cirkel
+ * solar_style: panel                     # optioneel; zonnepaneel waarvan de cellen oplichten
+ * solar_max_power: 5000                  #   piekvermogen (W) voor solar_style: panel
+ * grid_style: gauge                      # optioneel; boogmeter: afname t.o.v. de piekgrens
+ * grid_max_power: 5000                   #   schaal (W) als er geen piekgrens is
+ * home_style: house                      # optioneel; huisje dat vult met het eigen aandeel
  * peak_entity: sensor.maandpiek           # optioneel; capaciteitstarief
  * peak_limit: 2680                        # of peak_limit_entity: sensor.piekgrens
  * home_entity: sensor.home_power      # optioneel; zonder wordt het huisverbruik berekend
@@ -36,11 +41,14 @@
  *     icon: mdi:desktop-classic
  */
 
-const PFC_VERSION = '4.2.0';
+const PFC_VERSION = '4.3.0';
 const PFC_WARN = '#f97316';       // net-afname nadert de piekgrens
 const PFC_OVER = '#dc2626';       // net-afname boven de piekgrens
 const PFC_BAT_LOW = 20, PFC_BAT_MID = 50;   // battery_style: battery → rood / oranje / groen
 const PFC_BAT_W = 30, PFC_BAT_H = 40;       // batterijvorm (viewBox-eenheden), knopje komt erbovenop
+const PFC_PANEL_W = 46, PFC_PANEL_H = 32, PFC_PANEL_COLS = 4, PFC_PANEL_ROWS = 3;   // solar_style: panel
+const PFC_GAUGE_R = 23;                     // grid_style: gauge
+const PFC_GREEN = '#22a55a';
 const PFC_CONSUMER_MIN_W = 5;     // een verbruiker telt als "aan" boven deze waarde
 const PFC_SPAWN_MS       = 420;   // om de hoeveel ms er nieuwe stippen vertrekken
 const PFC_POWER_UNITS    = { w: 1, kw: 1000, mw: 1e6 };
@@ -123,6 +131,11 @@ class HomeEnergyFlowCard extends HTMLElement {
       battery_names:  Array.isArray(cfg.battery_names) ? cfg.battery_names.map(String) : null,
       show_batteries: cfg.show_batteries !== false,
       battery_style:  cfg.battery_style === 'battery' ? 'battery' : 'circle',
+      solar_style:    cfg.solar_style === 'panel' ? 'panel' : 'circle',
+      solar_max_power: Math.max(1, num(cfg.solar_max_power, 5000)),
+      grid_style:     cfg.grid_style === 'gauge' ? 'gauge' : 'circle',
+      grid_max_power: Math.max(1, num(cfg.grid_max_power, 5000)),
+      home_style:     cfg.home_style === 'house' ? 'house' : 'circle',
       peak_entity:       cfg.peak_entity       || null,
       peak_limit_entity: cfg.peak_limit_entity || null,
       peak_limit:        num(cfg.peak_limit, 0) || null,
@@ -301,6 +314,12 @@ class HomeEnergyFlowCard extends HTMLElement {
       .val  { font-weight: 700; }
       .node { fill: var(--pfc-bg); stroke-width: 2; }
       .bat-fill { transition: y .6s, height .6s, fill .6s; }
+      .cell { transition: fill .4s; }
+      .gauge-bg, .gauge-v { fill: none; stroke-width: 6; stroke-linecap: round; }
+      .gauge-bg { stroke: var(--pfc-line); }
+      .gauge-v { transition: stroke-dasharray .6s, stroke .4s; }
+      .hit { fill: transparent; }
+      .huis-pct { font-size: 14px; font-weight: 700; }
       .bat-bolt { filter: drop-shadow(0 0 1.5px rgba(0,0,0,.55)); }
       .tile { fill: var(--pfc-tile); }
       .line { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: opacity .3s; }
@@ -429,6 +448,38 @@ class HomeEnergyFlowCard extends HTMLElement {
         bolt.classList.add('bat-bolt');
         bolt.style.display = 'none';
         this._E.BAT.bolt = bolt;
+      } else if (s.key === 'solar' && cfg.solar_style === 'panel') {
+        // Zonnepaneel: kader in de toestandskleur, cellen lichten op met het vermogen t.o.v. solar_max_power.
+        const pw = PFC_PANEL_W, ph = PFC_PANEL_H, pad = 3, gap = 2;
+        const frame = pfcEl('rect', { x: x - pw / 2, y: y - ph / 2, width: pw, height: ph, rx: 3, class: 'node' });
+        g.appendChild(frame);
+        const cw = (pw - 2 * pad - (PFC_PANEL_COLS - 1) * gap) / PFC_PANEL_COLS;
+        const ch = (ph - 2 * pad - (PFC_PANEL_ROWS - 1) * gap) / PFC_PANEL_ROWS;
+        const cells = [];
+        for (let r = PFC_PANEL_ROWS - 1; r >= 0; r--) {          // onderste rij eerst
+          for (let k = 0; k < PFC_PANEL_COLS; k++) {
+            const cell = pfcEl('rect', { x: x - pw / 2 + pad + k * (cw + gap), y: y - ph / 2 + pad + r * (ch + gap),
+                                         width: cw, height: ch, rx: 1, class: 'cell' });
+            g.appendChild(cell);
+            cells.push(cell);
+          }
+        }
+        this._E.N[s.key] = { circ: frame, col: s.col };
+        this._E.PANEL = cells;
+      } else if (s.key === 'grid' && cfg.grid_style === 'gauge') {
+        // Boogmeter: afname (blauw → oranje → rood t.o.v. de piekgrens) vult van links, teruglevering (groen) van rechts.
+        const R = PFC_GAUGE_R, cy = y + 9;
+        const links  = `M${x - R},${cy} A${R},${R} 0 0 1 ${x + R},${cy}`;
+        const rechts = `M${x + R},${cy} A${R},${R} 0 0 0 ${x - R},${cy}`;
+        g.appendChild(pfcEl('rect', { x: x - R - 4, y: cy - R - 4, width: 2 * R + 8, height: R + 10, class: 'hit' }));
+        g.appendChild(pfcEl('path', { d: links, class: 'gauge-bg' }));
+        const imp = pfcEl('path', { d: links, class: 'gauge-v', pathLength: 100, 'stroke-dasharray': '0 100' });
+        const exp = pfcEl('path', { d: rechts, class: 'gauge-v', pathLength: 100, 'stroke-dasharray': '0 100' });
+        exp.style.stroke = PFC_GREEN;
+        g.appendChild(imp); g.appendChild(exp);
+        this._E.N[s.key] = { circ: pfcEl('circle', { r: 0 }), col: s.col };   // geen rand om te kleuren
+        this._E.GAUGE = { imp, exp };
+        this._E.I[s.key] = icon(s.icon, x, cy - 7, 18, s.col);
       } else {
         const circ = pfcEl('circle', { cx: x, cy: y, r: P.RS, class: 'node' });
         g.appendChild(circ);
@@ -453,10 +504,31 @@ class HomeEnergyFlowCard extends HTMLElement {
     {
       const g = pfcEl('g');
       g.appendChild(pfcEl('text', { x: P.HX, y: HY - P.RH - 8, 'text-anchor': 'middle', class: 'lbl' }, cfg.labels.home));
-      const circ = pfcEl('circle', { cx: P.HX, cy: HY, r: P.RH, class: 'node' });
-      circ.style.stroke = c.home; circ.style.strokeWidth = '2.5';
-      g.appendChild(circ);
-      icon('mdi:home', P.HX, HY, 28, c.home);
+      if (cfg.home_style === 'house') {
+        // Huisje: vult van onder met het aandeel uit eigen zon en batterij.
+        const x = P.HX, y = HY;
+        const vorm = `M${x - 30},${y - 4} L${x},${y - 30} L${x + 30},${y - 4} L${x + 23},${y - 4} L${x + 23},${y + 28} L${x - 23},${y + 28} L${x - 23},${y - 4} Z`;
+        const clip = pfcEl('clipPath', { id: 'pfcHuisClip' });
+        clip.appendChild(pfcEl('path', { d: vorm }));
+        g.appendChild(clip);
+        g.appendChild(pfcEl('path', { d: vorm, class: 'node', 'stroke-linejoin': 'round' }));
+        const fill = pfcEl('rect', { x: x - 31, y: y + 28, width: 62, height: 0, 'clip-path': 'url(#pfcHuisClip)', class: 'bat-fill' });
+        fill.style.fill = `color-mix(in srgb, ${PFC_GREEN} 38%, transparent)`;
+        g.appendChild(fill);
+        const omtrek = pfcEl('path', { d: vorm, fill: 'none', 'stroke-width': 2.5, 'stroke-linejoin': 'round' });
+        omtrek.style.stroke = c.home;
+        g.appendChild(omtrek);
+        const pct = pfcEl('text', { x, y: y + 18, 'text-anchor': 'middle', class: 'huis-pct' }, '');
+        pct.appendChild(pfcEl('title', {}, 'deel van het verbruik uit eigen zon en batterij'));
+        g.appendChild(pct);
+        this._E.HUIS = { fill, pct, top: y - 30, bodem: y + 28 };
+        icon('mdi:home', x, y - 9, 18, c.home);
+      } else {
+        const circ = pfcEl('circle', { cx: P.HX, cy: HY, r: P.RH, class: 'node' });
+        circ.style.stroke = c.home; circ.style.strokeWidth = '2.5';
+        g.appendChild(circ);
+        icon('mdi:home', P.HX, HY, 28, c.home);
+      }
       this._E.V.home = value(g, P.HX, HY + P.RH + 21, 18);
       klik(g, cfg.home_entity);
       nodesG.appendChild(g);
@@ -633,6 +705,29 @@ class HomeEnergyFlowCard extends HTMLElement {
                : s === null || s === 100 ? 'mdi:battery' : s === 0 ? 'mdi:battery-outline' : 'mdi:battery-' + s;
       if (E.I.bat.getAttribute('icon') !== ic) E.I.bat.setAttribute('icon', ic);
     }
+    if (E.PANEL) {
+      const aan = Math.round(Math.min(1, D.solar / cfg.solar_max_power) * E.PANEL.length);
+      const n = D.solar >= th ? Math.max(1, aan) : 0;
+      E.PANEL.forEach((cell, k) => { cell.style.fill = k < n ? cfg.colors.solar : 'var(--pfc-line)'; });
+    }
+    if (E.GAUGE) {
+      const schaal = D.limit || cfg.grid_max_power;
+      const pi = D.imp >= th ? Math.min(100, D.imp / schaal * 100) : 0;
+      const pe = D.exp >= th ? Math.min(100, D.exp / schaal * 100) : 0;
+      E.GAUGE.imp.setAttribute('stroke-dasharray', `${pi} 100`);
+      E.GAUGE.exp.setAttribute('stroke-dasharray', `${pe} 100`);
+      E.GAUGE.imp.style.stroke = gridCol;
+      E.GAUGE.imp.style.opacity = pi ? 1 : 0;
+      E.GAUGE.exp.style.opacity = pe ? 1 : 0;
+    }
+    if (E.HUIS) {
+      const h = D.homeShown || 0;
+      const eigen = h >= th ? Math.max(0, Math.min(100, (h - D.imp) / h * 100)) : null;
+      const hoog = (E.HUIS.bodem - E.HUIS.top) * (eigen || 0) / 100;
+      E.HUIS.fill.setAttribute('y', E.HUIS.bodem - hoog);
+      E.HUIS.fill.setAttribute('height', hoog);
+      E.HUIS.pct.textContent = eigen === null ? '' : Math.round(eigen) + '%';
+    }
     if (E.BAT) {
       const soc = D.soc === null ? 0 : Math.max(0, Math.min(100, D.soc));
       const h = E.BAT.h * soc / 100;
@@ -700,10 +795,13 @@ class HomeEnergyFlowCard extends HTMLElement {
 
     // Bron ↔ huis. fwd = bron → huis, back = huis → bron.
     const rBat = cfg.battery_style === 'battery' ? PFC_BAT_W / 2 + 1 : RS;
+    const rSol = cfg.solar_style === 'panel' ? PFC_PANEL_W / 2 + 1 : RS;
+    const rHuis = cfg.home_style === 'house' ? 26 : RH;
+    const rSrc = { bat: rBat, solar: rSol, grid: RS };
     const source = (key, col, fwd, back) => {
       const p = L.srcPos[key];
       if (!p) return;
-      const a = ep(p.x, p.y, key === 'bat' ? rBat : RS, HX, HY), b = ep(HX, HY, RH, p.x, p.y);
+      const a = ep(p.x, p.y, rSrc[key] || RS, HX, HY), b = ep(HX, HY, rHuis, p.x, p.y);
       setPath(EL['src_' + key], [a, b], null, fwd >= th || back >= th);
       if (fwd  >= th) flows.push({ pts: [a, b], col });
       if (back >= th) flows.push({ pts: [b, a], col });
@@ -715,7 +813,7 @@ class HomeEnergyFlowCard extends HTMLElement {
     // Zon → batterij: boog links van de kolom, zodat de lijn niet door de tekst loopt.
     const sp = L.srcPos.solar, bp = L.srcPos.bat;
     if (sp && bp && EL.solar_bat) {
-      const x = P.SX - RS, cx = x - 20, xb = P.SX - rBat;
+      const x = P.SX - rSol, cx = P.SX - RS - 20, xb = P.SX - rBat;
       const on = F.solarBat >= th;
       setPath(EL.solar_bat, null, `M${x},${sp.y} C${cx},${sp.y} ${cx},${bp.y} ${xb},${bp.y}`, on);
       if (on) {
@@ -741,10 +839,11 @@ class HomeEnergyFlowCard extends HTMLElement {
 
     const busOn = act.some(i => (this._D.ex[i] || 0) > PFC_CONSUMER_MIN_W);
     if (EL.home_bus) {
-      setPath(EL.home_bus, [{ x: HX + RH, y: HY }, { x: P.BX, y: HY }], null, n > 0);
+      const hb = cfg.home_style === 'house' ? 23 : RH;
+      setPath(EL.home_bus, [{ x: HX + hb, y: HY }, { x: P.BX, y: HY }], null, n > 0);
       EL.home_bus.style.display = n > 0 ? '' : 'none';
       // Eén gedeelde stroom huis → bus; vanaf de bus heeft elke verbruiker zijn eigen stippen.
-      if (busOn) flows.push({ pts: [{ x: HX + RH, y: HY }, { x: P.BX, y: HY }], col: c.consumers, spd: 1.1 });
+      if (busOn) flows.push({ pts: [{ x: HX + hb, y: HY }, { x: P.BX, y: HY }], col: c.consumers, spd: 1.1 });
     }
 
     const r = P.BEND;
