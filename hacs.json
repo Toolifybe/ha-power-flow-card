@@ -2,8 +2,8 @@
   "name": "Home Energy Flow Card",
   "description": "Animated energy flow card for Home Assistant: solar, grid, battery, home and individual consumers, with capacity-tariff peak warning and per-battery tiles.",
   "render_readme": true,
-  "documentation": "https://github.com/Toolifybe/ha-power-flow-card",
-  "issue_tracker": "https://github.com/Toolifybe/ha-power-flow-card/issues",
+  "documentation": "https://github.com/Toolifybe/ha-home-energy-flow-card",
+  "issue_tracker": "https://github.com/Toolifybe/ha-home-energy-flow-card/issues",
   "homeassistant": "2023.1.0",
   "filename": "power-flow-card.js",
   "content_in_root": true
