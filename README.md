@@ -5,6 +5,8 @@
 
 Animated energy flow card for Home Assistant (formerly *Power Flow Card*). Visualises real-time energy flows between solar panels, grid, battery, home and individual consumers.
 
+<p align="center"><img src="https://raw.githubusercontent.com/Toolifybe/ha-power-flow-card/main/images/screenshot.png" alt="Home Energy Flow Card: grid, solar and battery flowing to the home and its consumers, with a tile per battery" width="380"></p>
+
 ## Features
 
 - Animated flow dots showing direction and source of energy
