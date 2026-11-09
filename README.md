@@ -1,6 +1,6 @@
 # Home Energy Flow Card
 
-[![Version](https://img.shields.io/badge/version-4.3.1-blue.svg)](https://github.com/Toolifybe/ha-home-energy-flow-card)
+[![Version](https://img.shields.io/badge/version-4.4.0-blue.svg)](https://github.com/Toolifybe/ha-home-energy-flow-card)
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
 
 Animated energy flow card for Home Assistant (formerly *Power Flow Card*). Visualises real-time energy flows between solar panels, grid, battery, home and individual consumers.
@@ -19,7 +19,7 @@ Animated energy flow card for Home Assistant (formerly *Power Flow Card*). Visua
 - Consumers with 0 W are automatically hidden and re-appear when active
 - Debounce protection: prevents consumers from flickering during brief sensor glitches
 - Capacity tariff: grid turns orange near and red above your peak limit, with the monthly peak shown under the grid
-- Separate tiles per battery (state of charge and power), e.g. for multiple Marstek Venus batteries
+- Separate tiles per battery: a drawn battery that fills with the state of charge, the energy still stored (kWh) and the power, e.g. for multiple Marstek Venus batteries
 - Optional shapes instead of circles, each showing extra information:
   - battery that fills up with the state of charge (red, orange, green), with a bolt while charging
   - solar panel whose cells light up with the production compared to your peak power
@@ -312,6 +312,11 @@ Browse icons at [pictogrammers.com](https://pictogrammers.com/library/mdi/). Con
 ---
 
 ## Changelog
+
+### v4.4.0
+- Battery tiles redrawn: each tile shows a battery that fills with the state of charge (red below 20 %, orange below 50 %, green above) with the percentage inside
+- Each tile now also shows how much energy is still stored ("nog 2,20 kWh"), from `battery_stored_energy_entities`, or calculated from the state of charge and `battery_capacity_kwh`
+- The power with ▼ discharging / ▲ charging stays at the bottom of the tile
 
 ### v4.3.1
 - The header summary under the title is now hidden by default: the diagram already shows the same values. Turn it back on with `show_summary: true`; it then stays on one line (ends with … on a small screen, full text on hover)

@@ -1,5 +1,5 @@
 /**
- * Home Energy Flow Card v4.3.1   (vroeger: Power Flow Card)
+ * Home Energy Flow Card v4.4.0   (vroeger: Power Flow Card)
  *
  * Layout:
  *   Kop: icoon, titel, ondertitel met wat er gebeurt, pil met de nettoestand
@@ -42,7 +42,7 @@
  *     icon: mdi:desktop-classic
  */
 
-const PFC_VERSION = '4.3.1';
+const PFC_VERSION = '4.4.0';
 const PFC_WARN = '#f97316';       // net-afname nadert de piekgrens
 const PFC_OVER = '#dc2626';       // net-afname boven de piekgrens
 const PFC_BAT_LOW = 20, PFC_BAT_MID = 50;   // battery_style: battery → rood / oranje / groen
@@ -333,15 +333,23 @@ class HomeEnergyFlowCard extends HTMLElement {
       .bats:empty { display: none; }
       .bat { background: var(--pfc-tile); border-radius: 10px; padding: 7px 10px 8px; cursor: pointer; min-width: 0; }
       .bat:hover { filter: brightness(.96); }
-      .bat-n { font-size: 11px; color: var(--pfc-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .bat-r { display: flex; align-items: baseline; justify-content: space-between; gap: 4px; margin-top: 1px; }
-      .bat-soc { font-size: 15px; font-weight: 700; }
+      .bat-n { min-width: 0; font-size: 11px; color: var(--pfc-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .bat-r { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; column-gap: 6px; margin-top: 4px; }
       .bat-w { font-size: 11px; font-weight: 600; color: var(--pfc-sub); white-space: nowrap; }
       .bat-w.dis { color: var(--pfc-bat); }
       .bat-w.cha { color: var(--pfc-cha); }
       .u { font-size: .75em; font-weight: 500; color: var(--pfc-sub); }
-      .bar { height: 4px; border-radius: 2px; margin-top: 6px; background: var(--pfc-line); overflow: hidden; }
-      .bar > i { display: block; height: 100%; width: 0; border-radius: 2px; background: var(--pfc-bat); transition: width .4s; }
+      /* Getekende batterij: romp met vulling volgens laadtoestand, knopje rechts, % erin */
+      .accu { display: flex; align-items: center; margin-top: 6px; }
+      .accu-romp { position: relative; flex: 1; height: 24px; border: 2px solid var(--pfc-sub); border-radius: 6px;
+                   padding: 2px; box-sizing: border-box; }
+      .accu-romp > i { display: block; height: 100%; width: 0; border-radius: 3px; background: var(--pfc-line);
+                       transition: width .6s, background .6s; }
+      .accu-knop { flex: none; width: 4px; height: 10px; margin-left: 1px; border-radius: 0 2px 2px 0; background: var(--pfc-sub); }
+      .accu-pct { position: absolute; inset: 0; display: grid; place-items: center; font-size: 13px; font-weight: 700;
+                  color: var(--pfc-txt); text-shadow: 0 0 3px var(--pfc-tile), 0 0 3px var(--pfc-tile); }
+      .bat-kwh { flex-basis: 100%; font-size: 11px; color: var(--pfc-sub); white-space: nowrap; }
+      .bat-kwh b { font-weight: 700; color: var(--pfc-txt); }
     </style>
     <ha-card>
       <div class="kop" id="kop">
@@ -566,13 +574,16 @@ class HomeEnergyFlowCard extends HTMLElement {
       bl.forEach((ent, i) => {
         const d = document.createElement('div');
         d.className = 'bat';
-        d.innerHTML = '<div class="bat-n"></div><div class="bat-r"><span class="bat-soc"></span><span class="bat-w"></span></div><div class="bar"><i></i></div>';
+        d.innerHTML = '<div class="bat-n"></div>'
+          + '<div class="accu"><div class="accu-romp"><i></i><span class="accu-pct"></span></div><div class="accu-knop"></div></div>'
+          + '<div class="bat-r"><span class="bat-kwh"></span><span class="bat-w"></span></div>';
         const name = (cfg.battery_names && cfg.battery_names[i]) || `${cfg.labels.battery} ${i + 1}`;
         d.querySelector('.bat-n').textContent = name;
         d.title = name;
         d.addEventListener('click', () => this._moreInfo(ent));
         wrap.appendChild(d);
-        this._E.B.push({ soc: d.querySelector('.bat-soc'), w: d.querySelector('.bat-w'), bar: d.querySelector('.bar > i') });
+        this._E.B.push({ soc: d.querySelector('.accu-pct'), w: d.querySelector('.bat-w'), bar: d.querySelector('.accu-romp > i'),
+                         kwh: d.querySelector('.bat-kwh') });
       });
     }
 
@@ -639,12 +650,13 @@ class HomeEnergyFlowCard extends HTMLElement {
     this._D.bats = bl.map((ent, i) => {
       const raw = this._num(ent, 'power');
       let s = null;
+      // Opgeslagen energie (kWh): eigen sensor per batterij, anders laadtoestand × capaciteit
+      const eigen = cfg.battery_stored_energy_entities && cfg.battery_stored_energy_entities.length === bl.length;
+      let kwh = eigen ? this._num(cfg.battery_stored_energy_entities[i], 'energy') : null;
       if (cfg.battery_soc_entities && cfg.battery_soc_entities[i]) s = this._num(cfg.battery_soc_entities[i], null);
-      else if (cfg.battery_stored_energy_entities && cfg.battery_stored_energy_entities.length === bl.length && capEach) {
-        const kwh = this._num(cfg.battery_stored_energy_entities[i], 'energy');
-        if (kwh !== null) s = Math.max(0, Math.min(100, kwh / capEach * 100));
-      }
-      return { p: raw === null ? null : (cfg.battery_inverted ? raw : -raw), soc: s };
+      else if (kwh !== null && capEach) s = Math.max(0, Math.min(100, kwh / capEach * 100));
+      if (kwh === null && s !== null && capEach) kwh = capEach * s / 100;
+      return { p: raw === null ? null : (cfg.battery_inverted ? raw : -raw), soc: s, kwh };
     });
 
     this._updateLabels();
@@ -748,13 +760,17 @@ class HomeEnergyFlowCard extends HTMLElement {
 
     // Tegels per batterij
     (E.B || []).forEach((b, i) => {
-      const d = D.bats[i] || { p: null, soc: null };
-      b.soc.innerHTML = d.soc === null ? '–' : `${Math.round(d.soc)}<span class="u"> %</span>`;
+      const d = D.bats[i] || { p: null, soc: null, kwh: null };
+      b.soc.textContent = d.soc === null ? '–' : Math.round(d.soc) + ' %';
       const mode = d.p === null ? '' : d.p >= th ? 'dis' : d.p <= -th ? 'cha' : '';
       b.w.className = 'bat-w ' + mode;
       b.w.textContent = d.p === null ? '–' : (mode === 'dis' ? '▼ ' : mode === 'cha' ? '▲ ' : '') + this._fmt(Math.abs(d.p));
       b.w.title = mode === 'dis' ? 'ontladen' : mode === 'cha' ? 'laden' : 'rust';
-      b.bar.style.width = (d.soc === null ? 0 : d.soc) + '%';
+      const soc = d.soc === null ? 0 : Math.max(0, Math.min(100, d.soc));
+      b.bar.style.width = soc + '%';
+      b.bar.style.background = d.soc === null ? '' : soc < PFC_BAT_LOW ? PFC_OVER : soc < PFC_BAT_MID ? '#f59e0b' : PFC_GREEN;
+      b.kwh.style.display = d.kwh === null || d.kwh === undefined ? 'none' : '';
+      if (d.kwh !== null && d.kwh !== undefined) b.kwh.innerHTML = `nog <b>${this._nf(2).format(d.kwh)}</b> kWh`;
     });
 
     // ── Kop: wat gebeurt er? ──
@@ -978,7 +994,7 @@ class HomeEnergyFlowCard extends HTMLElement {
 
   getCardSize() {
     const h = this._L ? this._L.H : 330;
-    const bats = this._E && this._E.B && this._E.B.length ? 64 : 0;
+    const bats = this._E && this._E.B && this._E.B.length ? 100 : 0;
     return Math.ceil((h + bats + (this._cfg && this._cfg.title ? 66 : 0)) / 50);
   }
 }
