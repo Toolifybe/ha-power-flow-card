@@ -1,6 +1,6 @@
 # Home Energy Flow Card
 
-[![Version](https://img.shields.io/badge/version-4.5.2-blue.svg)](https://github.com/Toolifybe/ha-home-energy-flow-card)
+[![Version](https://img.shields.io/badge/version-4.5.3-blue.svg)](https://github.com/Toolifybe/ha-home-energy-flow-card)
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
 
 Animated energy flow card for Home Assistant (formerly *Power Flow Card*). Visualises real-time energy flows between solar panels, grid, battery, home and individual consumers.
@@ -315,7 +315,8 @@ Browse icons at [pictogrammers.com](https://pictogrammers.com/library/mdi/). Con
 
 ## Changelog
 
-### v4.5.2
+### v4.5.3
+- Same as v4.5.2 (that release failed to build)
 - Battery text regrouped: beside the battery what it does now (power and charging / discharging), under it what is stored ("49 % · nog 10,60 kWh")
 
 ### v4.5.1

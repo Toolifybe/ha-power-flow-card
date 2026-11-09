@@ -1,5 +1,5 @@
 /**
- * Home Energy Flow Card v4.5.2   (vroeger: Power Flow Card)
+ * Home Energy Flow Card v4.5.3   (vroeger: Power Flow Card)
  *
  * Layout:
  *   Kop: icoon, titel, ondertitel met wat er gebeurt, pil met de nettoestand
@@ -43,7 +43,7 @@
  *     icon: mdi:desktop-classic
  */
 
-const PFC_VERSION = '4.5.2';
+const PFC_VERSION = '4.5.3';
 const PFC_WARN = '#f97316';       // net-afname nadert de piekgrens
 const PFC_OVER = '#dc2626';       // net-afname boven de piekgrens
 const PFC_BAT_LOW = 20, PFC_BAT_MID = 50;   // battery_style: battery → rood / oranje / groen
