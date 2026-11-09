@@ -1,6 +1,6 @@
 # Home Energy Flow Card
 
-[![Version](https://img.shields.io/badge/version-4.5.3-blue.svg)](https://github.com/Toolifybe/ha-home-energy-flow-card)
+[![Version](https://img.shields.io/badge/version-4.6.0-blue.svg)](https://github.com/Toolifybe/ha-home-energy-flow-card)
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
 
 Animated energy flow card for Home Assistant (formerly *Power Flow Card*). Visualises real-time energy flows between solar panels, grid, battery, home and individual consumers.
@@ -115,6 +115,7 @@ battery_names:
   - Marstek 2
   - Marstek 3
 # show_batteries: false   # hide the tiles
+# show_battery_level: false   # hide the % and kWh line under the battery
 
 # Battery drawn as a battery that fills up with the state of charge instead of a circle:
 # red below 20 %, orange below 50 %, green above; a bolt while charging. Default: circle.
@@ -226,6 +227,7 @@ entities:
 | `battery_soc_entities` | list | — | State of charge per battery (%) |
 | `battery_names` | list | `Batterij 1…` | Names for the battery tiles |
 | `show_batteries` | bool | `true` | Show a tile per battery (2+ batteries) |
+| `show_battery_level` | bool | `true` | Show state of charge and stored kWh under the battery |
 | `peak_entity` | entity | — | Monthly peak sensor (W or kW) |
 | `peak_limit` | number | — | Peak limit in W |
 | `peak_limit_entity` | entity | — | Peak limit from a sensor / input_number (W or kW) |
@@ -314,6 +316,9 @@ Browse icons at [pictogrammers.com](https://pictogrammers.com/library/mdi/). Con
 ---
 
 ## Changelog
+
+### v4.6.0
+- New option `show_battery_level: false`: hides the state of charge and stored kWh under the battery (e.g. when you show them in a separate tile)
 
 ### v4.5.3
 - Same as v4.5.2 (that release failed to build)

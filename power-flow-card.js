@@ -1,5 +1,5 @@
 /**
- * Home Energy Flow Card v4.5.3   (vroeger: Power Flow Card)
+ * Home Energy Flow Card v4.6.0   (vroeger: Power Flow Card)
  *
  * Layout:
  *   Kop: icoon, titel, ondertitel met wat er gebeurt, pil met de nettoestand
@@ -26,6 +26,7 @@
  * battery_stored_energy_entities:
  *   - sensor.bat1_energy
  * battery_capacity_kwh: 15.36
+ * show_battery_level: false             # optioneel; % en kWh bij de batterij verbergen
  * battery_names: [Marstek 1, Marstek 2]   # optioneel; tegels per batterij onderaan
  * battery_style: battery                 # optioneel; batterij die volloopt i.p.v. een cirkel
  * solar_style: panel                     # optioneel; zonnepaneel waarvan de cellen oplichten
@@ -43,7 +44,7 @@
  *     icon: mdi:desktop-classic
  */
 
-const PFC_VERSION = '4.5.3';
+const PFC_VERSION = '4.6.0';
 const PFC_WARN = '#f97316';       // net-afname nadert de piekgrens
 const PFC_OVER = '#dc2626';       // net-afname boven de piekgrens
 const PFC_BAT_LOW = 20, PFC_BAT_MID = 50;   // battery_style: battery → rood / oranje / groen
@@ -161,6 +162,7 @@ class HomeEnergyFlowCard extends HTMLElement {
       battery_soc_entities: list(cfg.battery_soc_entities),
       battery_names:  Array.isArray(cfg.battery_names) ? cfg.battery_names.map(String) : null,
       show_batteries: cfg.show_batteries !== false,
+      show_battery_level: cfg.show_battery_level !== false,
       battery_style:  cfg.battery_style === 'battery' ? 'battery' : 'circle',
       solar_style:    cfg.solar_style === 'panel' ? 'panel' : 'circle',
       solar_max_power: Math.max(1, num(cfg.solar_max_power, 5000)),
@@ -565,7 +567,7 @@ class HomeEnergyFlowCard extends HTMLElement {
         g.appendChild(pk);
         this._E.S.peak = pk;
       }
-      if (s.key === 'bat' && (cfg.battery_stored_energy_entities || cfg.battery_capacity_kwh)) {
+      if (s.key === 'bat' && cfg.show_battery_level && (cfg.battery_stored_energy_entities || cfg.battery_capacity_kwh)) {
         const kw = pfcEl('text', { x: x - (nx - x - 8), y: y + P.RS + 14, 'text-anchor': 'start', class: 'sub' }, '');   // links uitgelijnd met de batterij: valt niet buiten de kaart
         g.appendChild(kw);
         this._E.S.batKwh = kw;
@@ -778,7 +780,7 @@ class HomeEnergyFlowCard extends HTMLElement {
     put(V.bat, D.batRaw === null ? null : Math.abs(D.batRaw));
     // Naast de batterij: wat ze nu doet. Eronder: wat erin zit (% en kWh).
     if (S.bat) {
-      const soc  = D.soc === null ? '' : Math.round(D.soc) + ' %';
+      const soc  = D.soc === null || !this._cfg.show_battery_level ? '' : Math.round(D.soc) + ' %';
       const mode = D.dis >= th ? T.discharging : D.cha >= th ? T.charging : '';
       S.bat.textContent = S.batKwh ? mode : [soc, mode].filter(Boolean).join(' · ');
       if (S.batKwh) {
