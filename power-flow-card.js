@@ -1,5 +1,5 @@
 /**
- * Home Energy Flow Card v4.5.0   (vroeger: Power Flow Card)
+ * Home Energy Flow Card v4.5.1   (vroeger: Power Flow Card)
  *
  * Layout:
  *   Kop: icoon, titel, ondertitel met wat er gebeurt, pil met de nettoestand
@@ -43,7 +43,7 @@
  *     icon: mdi:desktop-classic
  */
 
-const PFC_VERSION = '4.5.0';
+const PFC_VERSION = '4.5.1';
 const PFC_WARN = '#f97316';       // net-afname nadert de piekgrens
 const PFC_OVER = '#dc2626';       // net-afname boven de piekgrens
 const PFC_BAT_LOW = 20, PFC_BAT_MID = 50;   // battery_style: battery → rood / oranje / groen
@@ -551,14 +551,24 @@ class HomeEnergyFlowCard extends HTMLElement {
         this._E.N[s.key] = { circ, col: s.col };
         this._E.I[s.key] = icon(s.icon, x, y, 22, s.col);
       }
-      this._E.V[s.key] = value(g, x, y + P.RS + 17, 15);
-      const sub = pfcEl('text', { x, y: y + P.RS + 30, 'text-anchor': 'middle', class: 'sub' }, '');
+      // Batterij: vermogen en laadtoestand rechts naast de batterij, opgeslagen kWh eronder.
+      const naast = s.key === 'bat';
+      const nx = x + (cfg.battery_style === 'battery' ? PFC_BAT_W / 2 : P.RS) + 8;
+      this._E.V[s.key] = naast ? value(g, nx, y + 3, 15, 'start') : value(g, x, y + P.RS + 17, 15);
+      const sub = naast
+        ? pfcEl('text', { x: nx, y: y + 16, 'text-anchor': 'start', class: 'sub' }, '')
+        : pfcEl('text', { x, y: y + P.RS + 30, 'text-anchor': 'middle', class: 'sub' }, '');
       g.appendChild(sub);
       this._E.S[s.key] = sub;
       if (s.key === 'grid' && (cfg.peak_entity || cfg.peak_limit || cfg.peak_limit_entity)) {
         const pk = pfcEl('text', { x, y: y + P.RS + 41, 'text-anchor': 'middle', class: 'sub' }, '');
         g.appendChild(pk);
         this._E.S.peak = pk;
+      }
+      if (s.key === 'bat' && (cfg.battery_stored_energy_entities || cfg.battery_capacity_kwh)) {
+        const kw = pfcEl('text', { x, y: y + P.RS + 14, 'text-anchor': 'middle', class: 'sub' }, '');
+        g.appendChild(kw);
+        this._E.S.batKwh = kw;
       }
       klik(g, s.key === 'grid' ? cfg.grid_entity : s.key === 'solar' ? cfg.solar_entity
             : (cfg.battery_entity || cfg.battery_soc_entity || (cfg.battery_entities || [])[0]));
@@ -655,12 +665,14 @@ class HomeEnergyFlowCard extends HTMLElement {
     const batRaw   = cfg.battery_entities ? this._sum(cfg.battery_entities, 'power') : this._num(cfg.battery_entity, 'power');
 
     let soc = null;
-    if (cfg.battery_stored_energy_entities && cfg.battery_capacity_kwh) {
-      const kwh = this._sum(cfg.battery_stored_energy_entities, 'energy');
-      if (kwh !== null) soc = Math.max(0, Math.min(100, kwh / cfg.battery_capacity_kwh * 100));
+    // Totaal opgeslagen energie (kWh): som van de sensoren, anders laadtoestand × capaciteit
+    let batKwh = cfg.battery_stored_energy_entities ? this._sum(cfg.battery_stored_energy_entities, 'energy') : null;
+    if (batKwh !== null && cfg.battery_capacity_kwh) {
+      soc = Math.max(0, Math.min(100, batKwh / cfg.battery_capacity_kwh * 100));
     } else if (cfg.battery_soc_entity) {
       soc = this._num(cfg.battery_soc_entity, null);
     }
+    if (batKwh === null && soc !== null && cfg.battery_capacity_kwh) batKwh = cfg.battery_capacity_kwh * soc / 100;
 
     // Genormaliseerd: grid > 0 = import, bat > 0 = ontladen. Zon nooit negatief.
     const solar = Math.max(0, solarRaw || 0);
@@ -676,7 +688,7 @@ class HomeEnergyFlowCard extends HTMLElement {
     const solarToHome = Math.min(solar, homeCalc);
     const solarToBat  = Math.min(solar - solarToHome, cha);
 
-    this._D = { solarRaw, gridRaw, batRaw, soc, homeShown, grid, imp, exp, dis, cha, solar };
+    this._D = { solarRaw, gridRaw, batRaw, soc, batKwh, homeShown, grid, imp, exp, dis, cha, solar };
     this._F = {
       gridIn:    imp,                  // net → huis
       gridOut:   exp,                  // huis → net
@@ -768,6 +780,10 @@ class HomeEnergyFlowCard extends HTMLElement {
       const soc  = D.soc === null ? '' : Math.round(D.soc) + ' %';
       const mode = D.dis >= th ? T.discharging : D.cha >= th ? T.charging : '';
       S.bat.textContent = [soc, mode].filter(Boolean).join(' · ');
+    }
+    if (S.batKwh) {
+      S.batKwh.textContent = D.batKwh === null ? ''
+        : (T.left ? T.left + ' ' : '') + this._nf(2).format(D.batKwh) + ' kWh';
     }
     if (E.I.bat) {
       const s = D.soc === null ? null : Math.round(D.soc / 10) * 10;
