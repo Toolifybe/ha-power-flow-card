@@ -1,5 +1,5 @@
 /**
- * Home Energy Flow Card v4.6.0   (vroeger: Power Flow Card)
+ * Home Energy Flow Card v4.6.1   (vroeger: Power Flow Card)
  *
  * Layout:
  *   Kop: icoon, titel, ondertitel met wat er gebeurt, pil met de nettoestand
@@ -44,7 +44,7 @@
  *     icon: mdi:desktop-classic
  */
 
-const PFC_VERSION = '4.6.0';
+const PFC_VERSION = '4.6.1';
 const PFC_WARN = '#f97316';       // net-afname nadert de piekgrens
 const PFC_OVER = '#dc2626';       // net-afname boven de piekgrens
 const PFC_BAT_LOW = 20, PFC_BAT_MID = 50;   // battery_style: battery → rood / oranje / groen
@@ -683,14 +683,23 @@ class HomeEnergyFlowCard extends HTMLElement {
 
     const imp = Math.max(0, grid), exp = Math.max(0, -grid);
     const dis = Math.max(0, bat),  cha = Math.max(0, -bat);
-    const homeCalc  = Math.max(0, solar + imp + dis - exp - cha);
+    // Verbruikers rechts: wat ze samen meten, verbruikt het huis minstens.
+    const ex = {};
+    let exSom = 0;
+    cfg.entities.forEach((e, i) => { ex[i] = this._num(e.entity, 'power'); exSom += Math.max(0, ex[i] || 0); });
+    // De balans kan te laag (of negatief) uitvallen als de sensoren niet tegelijk bijwerken, bv. een
+    // zonnesensor die een paar minuten achterloopt terwijl de batterij al het echte overschot laadt.
+    // Dan nooit 0 W tonen: minstens de som van de gemeten verbruikers.
+    const balans    = solar + imp + dis - exp - cha;
+    const homeCalc  = Math.max(0, balans, exSom);
     const homeShown = cfg.home_entity ? this._num(cfg.home_entity, 'power') : homeCalc;
+    const geschat   = !cfg.home_entity && balans < exSom;
 
     // Verdeling van de zon: eerst huis, dan batterij, rest naar het net.
     const solarToHome = Math.min(solar, homeCalc);
     const solarToBat  = Math.min(solar - solarToHome, cha);
 
-    this._D = { solarRaw, gridRaw, batRaw, soc, batKwh, homeShown, grid, imp, exp, dis, cha, solar };
+    this._D = { solarRaw, gridRaw, batRaw, soc, batKwh, homeShown, geschat, grid, imp, exp, dis, cha, solar };
     this._F = {
       gridIn:    imp,                  // net → huis
       gridOut:   exp,                  // huis → net
@@ -700,8 +709,6 @@ class HomeEnergyFlowCard extends HTMLElement {
       batIn:     cha - solarToBat,     // huis → batterij (laden van het net)
     };
 
-    const ex = {};
-    cfg.entities.forEach((e, i) => { ex[i] = this._num(e.entity, 'power'); });
     this._D.ex = ex;
 
     // Capaciteitstarief: hoe dicht zit de huidige afname bij de piekgrens?
@@ -829,6 +836,8 @@ class HomeEnergyFlowCard extends HTMLElement {
     state('bat', D.dis >= th || D.cha >= th);
 
     put(V.home, D.homeShown);
+    // ondergrens (balans klopte niet, zie _updateData): toon het als "≥ 124 W"
+    if (V.home && D.geschat && D.homeShown > 0) V.home.n.textContent = '≥ ' + V.home.n.textContent;
     cfg.entities.forEach((e, i) => put(V['ex' + i], D.ex[i]));
 
     // Tegels per batterij
