@@ -1,7 +1,7 @@
 # Home Energy Flow Card
 
 [![Version](https://img.shields.io/badge/version-4.6.1-blue.svg)](https://github.com/Toolifybe/ha-home-energy-flow-card)
-[![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
+[![Marketplace](https://img.shields.io/badge/Marketplace-Custom-orange.svg)](https://hacs.xyz)
 
 Animated energy flow card for Home Assistant (formerly *Power Flow Card*). Visualises real-time energy flows between solar panels, grid, battery, home and individual consumers.
 
@@ -33,16 +33,15 @@ Animated energy flow card for Home Assistant (formerly *Power Flow Card*). Visua
 
 ## Installation
 
-### Via HACS (recommended)
+### Via Marketplace (recommended)
 
-1. Open HACS in Home Assistant
-2. Go to **Frontend**
-3. Click the **⋮** menu → **Custom repositories**
-4. Add `https://github.com/Toolifybe/ha-home-energy-flow-card` with category **Lovelace**
-5. Search for **Home Energy Flow Card** and click **Download**
-6. Hard-refresh your browser (Ctrl+Shift+R)
+1. Open **Marketplace** in the Home Assistant sidebar (formerly HACS)
+2. Click the **⋮** menu (top right) → **Custom repositories**
+3. Add `https://github.com/Toolifybe/ha-home-energy-flow-card` with type **Dashboard**
+4. Search for **Home Energy Flow Card** and click **Download**
+5. Hard-refresh your browser (Ctrl+Shift+R)
 
-HACS handles copying the file, registering the resource and future updates automatically.
+Marketplace handles copying the file, registering the resource and future updates automatically.
 
 ### Manual installation
 
@@ -299,7 +298,7 @@ Browse icons at [pictogrammers.com](https://pictogrammers.com/library/mdi/). Con
 ## Troubleshooting
 
 **Card does not load / `customElements` error**
-→ Delete the `.gz` file next to the `.js` in `/config/www/community/ha-home-energy-flow-card/` and hard-refresh. For HACS installs, try re-downloading via HACS.
+→ Delete the `.gz` file next to the `.js` in `/config/www/community/ha-home-energy-flow-card/` and hard-refresh. For Marketplace installs, try re-downloading via Marketplace.
 
 **Values are incorrect**
 → Check the raw sensor values in Developer Tools → States. Verify that `grid_inverted` and `battery_inverted` match your hardware's sign convention.
